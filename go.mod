@@ -1,6 +1,6 @@
 module gitlab.com/crusoeenergy/templates/go
 
-go 1.21
+go 1.23
 
 require (
 	github.com/rs/zerolog v1.28.0

@@ -9,7 +9,7 @@ BUILDDIR := ${PREFIX}/dist
 # Set any default go build tags
 BUILDTAGS :=
 
-GOLANGCI_VERSION = v1.55.2
+GOLANGCI_VERSION = v2.2.1
 TOOLS_VERSION = v0.7.0
 GO_ACC_VERSION = latest
 GOTESTSUM_VERSION = latest
@@ -24,7 +24,7 @@ ci: test-ci build-deps lint-ci ## Runs test, build-deps, lint
 .PHONY: build-deps
 build-deps: ## Install build dependencies
 	@echo "==> $@"
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_VERSION}
+	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_VERSION}
 
 .PHONY: get-aliaslint
 get-aliaslint:
@@ -65,7 +65,7 @@ lint: get-aliaslint ## Verifies `golangci-lint` passes
 lint-ci: get-aliaslint ## Verifies `golangci-lint` passes and outputs in CI-friendly format
 	@echo "==> $@"
 	@golangci-lint version
-	@golangci-lint run ./... --out-format code-climate > golangci-lint.json
+	@golangci-lint run ./... --output.code-climate.path golangci-lint.json
 
 .PHONY: build
 build: ## Builds the executable and places it in the build dir

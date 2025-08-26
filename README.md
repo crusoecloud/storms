@@ -13,6 +13,9 @@ If you're creating an executable, rename the subdir under `cmd` to the name of y
 ### Go library
 If you're creating a library, delete the `cmd` dir. Any packages you want to be exported from the library (i.e. that you want to depend on in other repos) should be in the top level dir of the repo. Any that you don't want to be exported should go in the `internal` dir.
 
+### Go versioning
+This template uses Go 1.23, but note that some Crusoe repos might be on older/newer versions. If you need to update the go version, do so in `go.mod` and the `CI_IMAGE` variable in `.gitlab-ci.yml`. 
+
 ### Other files
 Update the Makefile as you see fit, but make sure to have a `ci` directive that can be used by our Gitlab runner to verify commits. Please see the `.gitlab-ci.yml` file for the base CI setup. You can also update that file if you need to perform other types of operations during CI.
 
