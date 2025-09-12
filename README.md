@@ -1,4 +1,4 @@
-# Go Template
+<!-- # Go Template
 
 This project is used as a template for Crusoe's Go projects. It contains the common CI/CD files and directory structure that we use in our projects.
 
@@ -19,4 +19,30 @@ This template uses Go 1.23, but note that some Crusoe repos might be on older/ne
 ### Other files
 Update the Makefile as you see fit, but make sure to have a `ci` directive that can be used by our Gitlab runner to verify commits. Please see the `.gitlab-ci.yml` file for the base CI setup. You can also update that file if you need to perform other types of operations during CI.
 
-The `.golangci.yml` file should be left untouched unless there is a good reason to change the settings for or delete one of the linters. When submitting a MR that does remove support for a linter, please provide the reasoning in an inline comment in that file.
+The `.golangci.yml` file should be left untouched unless there is a good reason to change the settings for or delete one of the linters. When submitting a MR that does remove support for a linter, please provide the reasoning in an inline comment in that file. -->
+
+# Storage Management Service (StorMS)
+
+This project hosts the implementation of the StorMS application, which is used to federate multiple storage clusters, agnostic of vendors.
+
+## Design
+
+StorMS is intended to be deployed as an application. The service is provides is management multiple clients to various storage backends (Lightbits, PureStorage, etc.) under a single name space. 
+
+## Development/Running
+
+To run StorMS, first build the binary. Invokign the binary exposes its CLI, which will give instructions on how to start a StorMS instance.
+
+```
+make build # builds the StorMS binary into dist/
+dist/storms -h # invoke the binary 
+```
+
+To start a StorMS instance, do
+
+```
+make build 
+dist/storms serve
+```
+
+The `serve` command will start a running StorMS application using configuration specified in a user-provided (`--config`) or default file. 
