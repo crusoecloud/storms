@@ -2,13 +2,21 @@ PREFIX?=$(shell pwd)
 
 NAME := storms
 
-PKG := gitlab.com/crusoeenergy/island/storage/$(NAME) # VHENG -- TODO. this should later point to the non-cli
+PKG := gitlab.com/crusoeenergy/island/storage/$(NAME) 
+
+PROTO_DIR=api/proto
+GEN_DIR=api/gen/go
+PROTOC ?= protoc
+
+
+# Find all .proto files under PROTO_DIR
+PROTO_FILES := $(shell find $(PROTO_DIR) -name '*.proto')
 
 BUILDDIR := ${PREFIX}/dist
 # Set any default go build tags
 BUILDTAGS :=
 
-GOLANGCI_VERSION = v2.2.1
+GOLANGCI_VERSION = v2.4.0
 TOOLS_VERSION = v0.7.0
 GO_ACC_VERSION = latest
 GOTESTSUM_VERSION = latest
@@ -73,6 +81,17 @@ lint-ci: get-aliaslint ## Verifies `golangci-lint` passes and outputs in CI-frie
 	@echo "==> $@"
 	@golangci-lint version
 	@golangci-lint run ./... --output.code-climate.path golangci-lint.json
+
+.PHONY: proto
+proto: # build-deps lint generate
+	@echo "Generating Go code..."
+	@mkdir -p $(GEN_DIR)
+	@$(PROTOC) \
+		-I $(PROTO_DIR) \
+		-I third_party \
+		--go_out=$(GEN_DIR) --go_opt=paths=source_relative \
+		--go-grpc_out=$(GEN_DIR) --go-grpc_opt=paths=source_relative \
+		$(PROTO_FILES)
 
 .PHONY: help
 help:

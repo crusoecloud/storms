@@ -1,0 +1,280 @@
+syntax = "proto3";
+
+import "validate/validate.proto";
+import "google/protobuf/timestamp.proto";
+import "storms/v1/types.proto";
+import "common/field_option/field_option.proto";
+// import "v2/common/component/types_v2.proto";
+
+// // Import the types so we can reference Volume and Snapshot
+
+// // Go code will be generated in this package.
+option go_package = "gitlab.com/crusoeenergy/island/storage/storms/gen/go/storms/v1;stormspb";
+package storms.v1;
+
+// The StorMS (Storage Management Service) defines methods for managing the lifecycle of a 
+// block storage volume and snapshot
+// Methods in this service will be forwarded on to the StorMS service.
+// Current implementatin only supports block storage. 
+service StorageManagementService {
+    ///////////////////////// VOLUME /////////////////////////////
+    // Block storage volume operation
+    // Retrive a volume.
+    rpc GetVolume(GetVolumeRequest) returns (GetVolumeResponse);
+
+    // Retrieve all volumes
+    rpc GetVolumes(GetVolumesRequest) returns (GetVolumesResponse);
+
+    // Create a new volume.
+    rpc CreateVolume(CreateVolumeRequest) returns (CreateVolumeResponse);
+
+    // Resize a volume.
+    rpc ResizeVolume(ResizeVolumeRequest) returns (ResizeVolumeResponse);
+
+    // Delete a volume
+    rpc DeleteVolume(DeleteVolumeRequest) returns (DeleteVolumeResponse);
+
+    // Attach a volume 
+    rpc AttachVolume(AttachVolumeRequest) returns (AttachVolumeResponse);
+
+    // Detach a Volume
+    rpc DetachVolume(DetachVolumeRequest) returns (DetachVolumeResponse);
+
+    ///////////////////////// SNAPSHOT /////////////////////////////
+    // Block storage Snapshot opertion 
+    // Retrive a snapshot.
+    rpc GetSnapshot(GetSnapshotRequest) returns (GetSnapshotResponse);   
+
+    // Retrive all snapshots.
+    rpc GetSnapshots(GetSnapshotsRequest) returns (GetSnapshotsResponse);   
+
+    // Create a new snapshot.
+    rpc CreateSnapshot(CreateSnapshotRequest) returns (CreateSnapshotResponse);
+
+    // Delete a snapshot.
+    rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
+
+    ///////////////////////// CLONING OPERATION /////////////////////////////
+    // Block storage thick-clone operation
+    // For Lightbits disk or volume thick-clone, use DMS in StorMS
+    // For other vendors, possible no-ops
+
+    // Clone a volume
+    rpc CloneVolume(CloneVolumeRequest) returns (CloneVolumeResponse);
+
+    // Clone a snapshot 
+    rpc CloneSnapshot(CloneSnapshotRequest) returns (CloneSnapshotResponse);
+
+    // Retrieve cloner operation status 
+    rpc GetCloneStatus(GetCloneStatusRequest) returns (GetCloneStatusResponse);
+}
+
+///////////////////////// StorageManagementService VOLUME /////////////////////////////
+
+// Request message for StorageManagementService.GetVolume.
+message GetVolumeRequest {
+    // Query type - either by specific volume name or volume uuid
+    oneof query {
+        // UUID of the volume
+        string uuid = 1;
+        // name of the Volume
+        string name = 2;
+    }
+}
+
+// Response message for StorageManagementService.GetVolume.
+message GetVolumeResponse {
+    // volume 
+    storms.v1.Volume volume = 1;
+}
+
+// Request message for StorageManagementService.GetVolumes. 
+message GetVolumesRequest {}
+
+// Response message for StorageManagementService.GetVolumes.
+message GetVolumesResponse {
+    // A list of volumes 
+    repeated storms.v1.Volume volumes = 1 [(common.field_option.sensitive) = "false"];
+}
+
+// Request message for StorageManagementService.CreateVolume.
+message CreateVolumeRequest {
+    // newly created volume
+    storms.v1.Volume volume = 1 [(common.field_option.sensitive) = "false"];
+}
+
+// Response message for StorageManagementService.CreateVolume.
+message CreateVolumeResponse {}
+
+// Request message for StorageManagementService.ResizeVolume. 
+message ResizeVolumeRequest {
+    // Query type - either by specific volume name or volume uuid
+    oneof query {
+        // UUID of the volume
+        string uuid = 1;
+        // name of the Volume
+        string name = 2;
+    }
+
+    // Updated size of the disk, in bytes.
+    uint64 size = 3 [(common.field_option.sensitive) = "false"];
+}
+
+// Response message for StorageManagementService.ResizeVolume
+message ResizeVolumeResponse {}
+
+// Request message for StorageManagementService.DeleteVolume.
+message DeleteVolumeRequest {
+    // Query type - either by specific volume name or volume uuid
+    oneof query {
+        // UUID of the volume
+        string uuid = 1;
+        // name of the Volume
+        string name = 2;
+    }
+}
+
+// Response message for StorageManagementService.DeleteVolume.
+message DeleteVolumeResponse {}
+
+// Request message for StorageManagementService.AttachVolume.
+message AttachVolumeRequest {
+    // Query type - either by specific volume name or volume uuid
+    oneof query {
+        // UUID of the volume
+        string uuid = 1;
+        // name of the Volume
+        string name = 2;
+    }
+
+    // Required - List of ACL (hosts UUID) to add to the volume 
+    repeated string acls = 3;
+}
+
+// Response message for StorageManagementService.AttachVolume.
+message AttachVolumeResponse {}
+
+// Request message for StorageManagementService.DetachVolume.
+message DetachVolumeRequest {
+    // Query type - either by specific volume name or volume uuid
+    oneof query {
+        // UUID of the volume
+        string uuid = 1;
+        // name of the Volume
+        string name = 2;
+    }
+
+    // Required - List of ACL (hosts UUID) to remove from the volume
+    repeated string acls = 3;
+}
+
+// Response message for StorageManagementService.DetachVolume.
+message DetachVolumeResponse {}
+
+///////////////////////// StorageManagementService SNAPSHOT /////////////////////////////
+
+// Request message for StorageManagementService.GetSnapshot
+message GetSnapshotRequest {
+    // Query type - either by specific snapshot name or snapshot uuid
+    oneof query {
+        // UUID of the snapshot
+        string uuid = 1;
+        // name of the snapshot
+        string name = 2;
+    }
+}
+
+// Response message for StorageManagementService.GetSnapshot
+message GetSnapshotResponse {
+    // snapshot
+    storms.v1.Snapshot snapshot = 1 [(common.field_option.sensitive) = "false"];
+}
+
+// Request message for StorageManagementService.GetSnapshots
+message GetSnapshotsRequest {}
+
+// Response message for StorageManagementService.GetSnapshots
+message GetSnapshotsResponse {
+    // all snapshots
+    repeated storms.v1.Snapshot snapshots = 1 [(common.field_option.sensitive) = "false"];
+}
+
+// Request message for StorageManagementService.CreateSnapshot.
+message CreateSnapshotRequest {
+    // new snapshot to be created 
+    storms.v1.Snapshot snapshot = 1 [(common.field_option.sensitive) = "false"];
+}
+
+// Response message for StorageManagementService.CreateSnapshot.
+message CreateSnapshotResponse {}
+
+// Request message for StorageManagementService.DeleteSnapshot.
+message DeleteSnapshotRequest {
+    // Query type - either by specific snapshot name or snapshot uuid
+    oneof query {
+        // UUID of the snapshot
+        string uuid = 1;
+        // name of the snapshot
+        string name = 2;
+    }
+}
+
+// Response message for StorageManagementService.DeleteSnapshot.
+message DeleteSnapshotResponse {}
+
+///////////////////////// StorageManagementService CLONING /////////////////////////////
+
+// Request message for StorageManagementService.CloneVolume. 
+message CloneVolumeRequest {
+    // Required - UUID of the source volume
+    string src_volume_uuid = 1 [(validate.rules).string.uuid = true];
+
+    // Required - name of the destination volume
+    string dst_volume_name = 2 [(validate.rules).string.uuid = true];
+}
+
+// Response message for StorageManagementService.CloneVolume. 
+message CloneVolumeResponse {
+    // clone operation id 
+    string operation_id = 1 [(validate.rules).string.uuid = true];
+}
+
+// Request message for StorageManagementService.CloneSnapshot. 
+message CloneSnapshotRequest {
+    // Required - UUID of the source snapshot
+    string src_snapshot_uuid = 1 [(validate.rules).string.uuid = true];
+
+    // Required - name of the destination snapshot
+    string dst_snapshot_name = 2 [(validate.rules).string.uuid = true];
+}
+
+// Response message for StorageManagementService.CloneSnapshot. 
+message CloneSnapshotResponse {
+     // clone operation id 
+    string operation_id = 1 [(validate.rules).string.uuid = true];
+}
+
+// Request message for StorageManagementService.GetCloneStatus. 
+message GetCloneStatusRequest {
+    // Required - UUID of the clone operation
+    string operation_id = 1 [(validate.rules).string.uuid = true];
+}
+
+// Response message for StorageManagementService.GetCloneStatus. 
+message GetCloneStatusResponse {
+    // clone operation UUID
+    string operation_id = 1 [(validate.rules).string.uuid = true];
+
+    // the time the operation was created
+    google.protobuf.Timestamp created_at = 2;
+
+    // the time the operation completed
+    google.protobuf.Timestamp ended_at = 3;
+
+    // The state of the operation
+    storms.v1.OperationState state = 4;
+
+    // The percentage of the operation that has been completed.
+    uint32 percent_complete = 5;
+}
+
