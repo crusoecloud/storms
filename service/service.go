@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"crypto/tls"
 	"fmt"
 	"net"
@@ -11,13 +12,15 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/reflection"
 
+	storms "gitlab.com/crusoeenergy/island/storage/storms/api/gen/go/storms/v1"
 	"gitlab.com/crusoeenergy/island/storage/storms/client"
 	"gitlab.com/crusoeenergy/island/storage/storms/configs"
 	"gitlab.com/crusoeenergy/island/storage/storms/model"
 	"gitlab.com/crusoeenergy/island/storage/storms/resource"
-	"gitlab.com/crusoeenergy/schemas/api/island/v2/storagemulti"
 	grpcutil "gitlab.com/crusoeenergy/schemas/utils/rpc/grpc"
 )
+
+const tcpProtocol = "tcp"
 
 // --- Begin clientMap
 
@@ -94,7 +97,7 @@ type Service struct {
 	resources *resourceMap // TODO - we may want this in a file
 
 	*grpc.Server
-	storagemulti.UnimplementedStormsServiceServer
+	storms.UnimplementedStorageManagementServiceServer
 }
 
 func NewService(endpoint string) *Service {
@@ -166,14 +169,15 @@ func (s *Service) serve() error {
 
 	s.Server = grpcutil.NewServer(tlsConfig)
 
-	listener, err := net.Listen("tcp", s.endpoint)
+	listenConfig := net.ListenConfig{}
+	listener, err := listenConfig.Listen(context.Background(), tcpProtocol, s.endpoint)
 	if err != nil {
 		return fmt.Errorf("failed to listen on port %s: %w", s.endpoint, err)
 	}
 	s.listener = listener
 
 	reflection.Register(s)
-	storagemulti.RegisterStormsServiceServer(s, s)
+	storms.RegisterStorageManagementServiceServer(s, s)
 
 	log.Info().Msg("Starting service")
 	go func() {
