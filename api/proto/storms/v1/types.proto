@@ -4,7 +4,6 @@ import "validate/validate.proto";
 import "common/field_option/field_option.proto";
 
 // Go code will be generated in this package.
-// option go_package = "gitlab.com/crusoeenergy/schemas/api/island/v2/storms";
 option go_package = "gitlab.com/crusoeenergy/island/storage/storms/gen/go/storms/v1;stormspb";
 
 package storms.v1;
@@ -15,10 +14,10 @@ enum SectorSizeEnum {
     SECTOR_SIZE_ENUM_UNSPECIFIED = 0; 
 
     // OS disk sector size 
-    SECTOR_SIZE_ENUM_512 = 1;
+    SECTOR_SIZE_ENUM_512 = 512;
 
     // Default sector size for volumes/snapshots
-    SECTOR_SIZE_ENUM_4096 = 2;
+    SECTOR_SIZE_ENUM_4096 = 4096;
 }
 
 // Block storage Volume 

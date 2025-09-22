@@ -1,4 +1,4 @@
-package model
+package configs
 
 import (
 	"fmt"
@@ -11,9 +11,11 @@ type ClusterConfig struct {
 	Clusters []Cluster `yaml:"clusters"`
 }
 
+//nolint:tagliatelle // using snake case for YAML
 type Cluster struct {
-	Vendor   string `yaml:"vendor"`
-	Endpoint string `yaml:"endpoint"`
+	Vendor       string                 `yaml:"vendor"`
+	ClusterID    string                 `yaml:"cluster_id"`
+	VendorConfig map[string]interface{} `yaml:"vendor_config"` // This is for vendor-specific configuration.
 }
 
 func LoadClusterConfig(filename string) (*ClusterConfig, error) {

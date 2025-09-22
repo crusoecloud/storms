@@ -1,5 +1,0 @@
-clusters:
-  - vendor: "vendor0"
-    endpoint: "0.0.0.0"
-  - vendor: "vendor1"
-    endpoint: "1.1.1.1"

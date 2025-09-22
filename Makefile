@@ -25,6 +25,8 @@ GOCOVER_VERSION = latest
 .PHONY: build
 build: ## Builds the executable and places it in the build dir
 	@go build -o ${BUILDDIR}/${NAME} ${PKG}
+	@GOOS=linux GOARCH=amd64 go build -o ${BUILDDIR}/${NAME}-x86_64 ${PKG}
+
 
 .PHONY: run
 run:

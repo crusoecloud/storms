@@ -6,8 +6,6 @@ import (
 
 	"github.com/ory/viper"
 	"github.com/spf13/cobra"
-
-	"gitlab.com/crusoeenergy/schemas/utils/rpc"
 )
 
 const (
@@ -32,8 +30,8 @@ type AppConfig struct {
 	LocalIP string `mapstructure:"local_ip"`
 	// port for listening gRPC request
 	GrpcPort int `mapstructure:"grpc_port"`
-	// information needed for HTTP and gRPC authentication
-	AuthInfo *rpc.AuthInfo `mapstructure:"auth_info"`
+	// // information needed for HTTP and gRPC authentication
+	// AuthInfo *rpc.AuthInfo `mapstructure:"auth_info"`
 	// cluster file
 	ClusterFile string `mapstructure:"cluster_file"`
 	// resource file
