@@ -73,13 +73,8 @@ service StorageManagementService {
 
 // Request message for StorageManagementService.GetVolume.
 message GetVolumeRequest {
-    // Query type - either by specific volume name or volume uuid
-    oneof query {
-        // UUID of the volume
-        string uuid = 1;
-        // name of the Volume
-        string name = 2;
-    }
+    // Required - UUID of the volume
+    string uuid = 1 [(validate.rules).string.uuid = true];
 }
 
 // Response message for StorageManagementService.GetVolume.
@@ -108,16 +103,11 @@ message CreateVolumeResponse {}
 
 // Request message for StorageManagementService.ResizeVolume. 
 message ResizeVolumeRequest {
-    // Query type - either by specific volume name or volume uuid
-    oneof query {
-        // UUID of the volume
-        string uuid = 1;
-        // name of the Volume
-        string name = 2;
-    }
+   // Required - UUID of the volume
+    string uuid = 1 [(validate.rules).string.uuid = true];
 
     // Updated size of the disk, in bytes.
-    uint64 size = 3 [(common.field_option.sensitive) = "false"];
+    uint64 size = 2 [(common.field_option.sensitive) = "false"];
 }
 
 // Response message for StorageManagementService.ResizeVolume
@@ -125,13 +115,8 @@ message ResizeVolumeResponse {}
 
 // Request message for StorageManagementService.DeleteVolume.
 message DeleteVolumeRequest {
-    // Query type - either by specific volume name or volume uuid
-    oneof query {
-        // UUID of the volume
-        string uuid = 1;
-        // name of the Volume
-        string name = 2;
-    }
+    // Required - UUID of the volume
+    string uuid = 1 [(validate.rules).string.uuid = true];
 }
 
 // Response message for StorageManagementService.DeleteVolume.
@@ -139,16 +124,11 @@ message DeleteVolumeResponse {}
 
 // Request message for StorageManagementService.AttachVolume.
 message AttachVolumeRequest {
-    // Query type - either by specific volume name or volume uuid
-    oneof query {
-        // UUID of the volume
-        string uuid = 1;
-        // name of the Volume
-        string name = 2;
-    }
+    // Required - UUID of the volume
+    string uuid = 1 [(validate.rules).string.uuid = true];
 
     // Required - List of ACL (hosts UUID) to add to the volume 
-    repeated string acls = 3;
+    repeated string acls = 2;
 }
 
 // Response message for StorageManagementService.AttachVolume.
@@ -156,16 +136,11 @@ message AttachVolumeResponse {}
 
 // Request message for StorageManagementService.DetachVolume.
 message DetachVolumeRequest {
-    // Query type - either by specific volume name or volume uuid
-    oneof query {
-        // UUID of the volume
-        string uuid = 1;
-        // name of the Volume
-        string name = 2;
-    }
+    // Required - UUID of the volume
+    string uuid = 1 [(validate.rules).string.uuid = true];
 
     // Required - List of ACL (hosts UUID) to remove from the volume
-    repeated string acls = 3;
+    repeated string acls = 2;
 }
 
 // Response message for StorageManagementService.DetachVolume.
@@ -175,13 +150,8 @@ message DetachVolumeResponse {}
 
 // Request message for StorageManagementService.GetSnapshot
 message GetSnapshotRequest {
-    // Query type - either by specific snapshot name or snapshot uuid
-    oneof query {
-        // UUID of the snapshot
-        string uuid = 1;
-        // name of the snapshot
-        string name = 2;
-    }
+    // Required - UUID of the snapshot
+    string uuid = 1 [(validate.rules).string.uuid = true];
 }
 
 // Response message for StorageManagementService.GetSnapshot
@@ -210,13 +180,8 @@ message CreateSnapshotResponse {}
 
 // Request message for StorageManagementService.DeleteSnapshot.
 message DeleteSnapshotRequest {
-    // Query type - either by specific snapshot name or snapshot uuid
-    oneof query {
-        // UUID of the snapshot
-        string uuid = 1;
-        // name of the snapshot
-        string name = 2;
-    }
+    // Required - UUID of the snapshot
+    string uuid = 1 [(validate.rules).string.uuid = true];
 }
 
 // Response message for StorageManagementService.DeleteSnapshot.

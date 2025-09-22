@@ -32,6 +32,9 @@ build: ## Builds the executable and places it in the build dir
 run:
 	@go run main.go 
 
+.PHONY: dev
+dev: test build-deps lint ## Runs a build-deps, test, lint
+
 .PHONY: ci
 ci: test-ci build-deps lint-ci ## Runs test, build-deps, lint
 
