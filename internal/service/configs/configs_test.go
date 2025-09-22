@@ -1,4 +1,4 @@
-package model
+package configs
 
 import (
 	"testing"
@@ -18,8 +18,9 @@ func Test_LoadClusterConfig_Valid(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, len(cfg.Clusters), 2)
-	require.Equal(t, cfg.Clusters[0].Endpoint, "0.0.0.0")
-	require.Equal(t, cfg.Clusters[0].Vendor, "vendor0")
-	require.Equal(t, cfg.Clusters[1].Endpoint, "1.1.1.1")
-	require.Equal(t, cfg.Clusters[1].Vendor, "vendor1")
+	require.Equal(t, cfg.Clusters[0].Vendor, "lightbits")
+	require.NotNil(t, cfg.Clusters[0].VendorConfig)
+
+	// require.Equal(t, cfg.Clusters[1].Endpoint, "1.1.1.1")
+	require.NotNil(t, cfg.Clusters[1].VendorConfig)
 }

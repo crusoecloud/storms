@@ -1,0 +1,10 @@
+clusters:
+  - vendor: "lightbits"
+    vendor_config:
+      auth_token: "this_is_an_auth_token"
+      addr_strs: ["1.1.1.1", "2.2.2.2"]
+      project_name: "project-name"
+  - vendor: "crusoe"
+    vendor_config: 
+      endpoints: ["1.1.1.1"]
+      password: top_secret_password

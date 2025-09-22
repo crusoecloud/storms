@@ -6,8 +6,8 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
-	"gitlab.com/crusoeenergy/island/storage/storms/application"
-	"gitlab.com/crusoeenergy/island/storage/storms/configs"
+	"gitlab.com/crusoeenergy/island/storage/storms/internal/app"
+	appconfigs "gitlab.com/crusoeenergy/island/storage/storms/internal/app/configs"
 )
 
 func newServeCmd() *cobra.Command {
@@ -17,25 +17,25 @@ func newServeCmd() *cobra.Command {
 		RunE:  serveCmdFunc,
 	}
 
-	configs.AddFlags(cmd)
+	appconfigs.AddFlags(cmd)
 
 	return cmd
 }
 
 func serveCmdFunc(cmd *cobra.Command, args []string) error {
-	if err := configs.ApplyConfig(cmd, args); err != nil {
-		return fmt.Errorf("failed to apply configs: %w", err)
+	if err := appconfigs.ApplyConfig(cmd, args); err != nil {
+		return fmt.Errorf("failed to apply appconfigs: %w", err)
 	}
 
-	appConfig := configs.Get()
+	appConfig := appconfigs.Get()
 	log.Info().Msgf("StorMS configuration: %#v\n", appConfig)
 
-	app, err := application.NewApp(&appConfig)
+	a, err := app.NewApp(&appConfig)
 	if err != nil {
 		return fmt.Errorf("failed to create new application: %w", err)
 	}
 
-	if err = app.Start(cmd.Context()); err != nil {
+	if err = a.Start(cmd.Context()); err != nil {
 		return fmt.Errorf("failed to start application: %w", err)
 	}
 

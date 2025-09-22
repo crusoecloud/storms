@@ -11,5 +11,5 @@ package common.field_option;
 // organizations, so we will start defining field options within this range.
 extend google.protobuf.FieldOptions {
     // Defines the sensitivity of the field. Sensitive fields will be hidden in logs.
-    string sensitive = 50000;
+    string sensitive = 50001;
 }

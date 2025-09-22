@@ -1,4 +1,4 @@
-package application
+package app
 
 import (
 	"context"
@@ -9,8 +9,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"gitlab.com/crusoeenergy/island/storage/storms/configs"
-	"gitlab.com/crusoeenergy/island/storage/storms/service"
+	"gitlab.com/crusoeenergy/island/storage/storms/internal/app/configs"
+	"gitlab.com/crusoeenergy/island/storage/storms/internal/service"
 )
 
 type App struct {
