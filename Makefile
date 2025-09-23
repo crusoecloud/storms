@@ -16,17 +16,16 @@ BUILDDIR := ${PREFIX}/dist
 # Set any default go build tags
 BUILDTAGS :=
 
-GOLANGCI_VERSION = v2.4.0
+GOLANGCI_VERSION = v1.59.1
 TOOLS_VERSION = v0.7.0
 GO_ACC_VERSION = latest
-GOTESTSUM_VERSION = latest
+GOTESTSUM_VERSION = v1.12.2 # incrementing this will require go1.23
 GOCOVER_VERSION = latest
 
 .PHONY: build
 build: ## Builds the executable and places it in the build dir
 	@go build -o ${BUILDDIR}/${NAME} ${PKG}
 	@GOOS=linux GOARCH=amd64 go build -o ${BUILDDIR}/${NAME}-x86_64 ${PKG}
-
 
 .PHONY: run
 run:
@@ -41,7 +40,7 @@ ci: test-ci build-deps lint-ci ## Runs test, build-deps, lint
 .PHONY: build-deps
 build-deps: ## Install build dependencies
 	@echo "==> $@"
-	@go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@${GOLANGCI_VERSION}
+	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@${GOLANGCI_VERSION}
 
 .PHONY: lint
 lint: ## Verifies `golangci-lint` passes, runs the sqlc linter, and the explicit CARDINALITY check in *.sql.go files
@@ -85,7 +84,7 @@ test-ci: ## Runs the go tests with additional options for a CI environment
 lint-ci: get-aliaslint ## Verifies `golangci-lint` passes and outputs in CI-friendly format
 	@echo "==> $@"
 	@golangci-lint version
-	@golangci-lint run ./... --output.code-climate.path golangci-lint.json
+	@golangci-lint run ./... --out-format code-climate > golangci-lint.json
 
 .PHONY: proto
 proto: # build-deps lint generate

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"math"
 
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -58,7 +57,7 @@ func (ct *ClientTranslator) CloneVolume(_ context.Context, _ client.Client, _ *s
 
 func (ct *ClientTranslator) CreateSnapshot(ctx context.Context, c client.Client, req *storms.CreateSnapshotRequest,
 ) (*storms.CreateSnapshotResponse, error) {
-	sectorSize, err := int32ToUint32Checked(int32(req.Snapshot.SectorSize))
+	sectorSize, err := translateSectorSizeEnumToUint32(req.Snapshot.SectorSize) // translate enum to actual size
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert int32 to uint32: %w", err)
 	}
@@ -81,10 +80,13 @@ func (ct *ClientTranslator) CreateSnapshot(ctx context.Context, c client.Client,
 
 func (ct *ClientTranslator) CreateVolume(ctx context.Context, c client.Client, req *storms.CreateVolumeRequest,
 ) (*storms.CreateVolumeResponse, error) {
-	sectorSize, err := int32ToUint32Checked(int32(req.Volume.SectorSize))
+	sectorSize, err := translateSectorSizeEnumToUint32(req.Volume.SectorSize)
 	if err != nil {
 		return nil, fmt.Errorf("failed to convert int32 to uint32: %w", err)
 	}
+
+	log.Info().Msgf("create volume in c translator: %d", sectorSize)
+
 	translatedReq := &models.CreateVolumeRequest{
 		UUID:       req.Volume.GetUuid(),
 		Size:       req.Volume.GetSize(),
@@ -166,10 +168,7 @@ func (ct *ClientTranslator) GetSnapshot(ctx context.Context, c client.Client, re
 		return nil, fmt.Errorf("failed to get snapshot: %w", err)
 	}
 
-	sectorSizeEnum, err := uint32ToSectorSizeEnumChecked(s.Snapshot.SectorSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to translate sector size: %w", err)
-	}
+	sectorSizeEnum := translateUint32ToSectorSizeEnum(s.Snapshot.SectorSize)
 
 	return &storms.GetSnapshotResponse{
 		Snapshot: &storms.Snapshot{
@@ -193,12 +192,7 @@ func (ct *ClientTranslator) GetSnapshots(ctx context.Context, c client.Client, _
 	ss := lo.Map[*models.Snapshot, *storms.Snapshot](
 		snapshots.Snapshots,
 		func(s *models.Snapshot, _ int) *storms.Snapshot {
-			sectorSizeEnum, err := uint32ToSectorSizeEnumChecked(s.SectorSize)
-			if err != nil {
-				log.Err(err)
-
-				return nil
-			}
+			sectorSizeEnum := translateUint32ToSectorSizeEnum(s.SectorSize)
 
 			return &storms.Snapshot{
 				Uuid:             s.UUID,
@@ -226,10 +220,7 @@ func (ct *ClientTranslator) GetVolume(ctx context.Context, c client.Client, req 
 	}
 	vol := clientResp.Volume
 
-	sectorSizeEnum, err := uint32ToSectorSizeEnumChecked(vol.SectorSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed translate sector size: %w", err)
-	}
+	sectorSizeEnum := translateUint32ToSectorSizeEnum(vol.SectorSize)
 
 	resp := &storms.GetVolumeResponse{
 		Volume: &storms.Volume{
@@ -254,12 +245,7 @@ func (ct *ClientTranslator) GetVolumes(ctx context.Context, c client.Client, _ *
 	}
 
 	vs := lo.Map[*models.Volume, *storms.Volume](volumes.Volumes, func(v *models.Volume, _ int) *storms.Volume {
-		sectorSizeEnum, err := uint32ToSectorSizeEnumChecked(v.SectorSize)
-		if err != nil {
-			log.Err(err)
-
-			return nil
-		}
+		sectorSizeEnum := translateUint32ToSectorSizeEnum(v.SectorSize)
 
 		return &storms.Volume{
 			Uuid:               v.UUID,
@@ -292,39 +278,29 @@ func (ct *ClientTranslator) ResizeVolume(ctx context.Context, c client.Client, r
 	}, nil
 }
 
-// Begin -- Helper function(s)
+// Begin -- Helper
 
-func uint32ToSectorSizeEnumChecked(u uint32) (storms.SectorSizeEnum, error) {
-	sectorSize, err := uint32ToInt32Checked(u)
-	if err != nil {
-		return storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED,
-			fmt.Errorf("failed to convert uint32 to int32: %w", err)
-	}
-	_, ok := storms.SectorSizeEnum_name[sectorSize]
-	if !ok {
-		return storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED, errUnsupportedSectorSize
-	}
+func translateUint32ToSectorSizeEnum(u uint32) storms.SectorSizeEnum {
+	switch u {
+	case 4096:
+		return storms.SectorSizeEnum_SECTOR_SIZE_ENUM_4096
+	case 512:
+		return storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512
 
-	return storms.SectorSizeEnum(sectorSize), nil
+	default:
+		return storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED
+	}
 }
 
-var (
-	errInt32OutOfRange  = errors.New("int32 out of range")
-	errUint32OutOfRange = errors.New("uint32 out of range")
-)
-
-func int32ToUint32Checked(i int32) (uint32, error) {
-	if i < 0 {
-		return 0, errInt32OutOfRange
+func translateSectorSizeEnumToUint32(e storms.SectorSizeEnum) (uint32, error) {
+	switch e {
+	case storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512:
+		return 512, nil
+	case storms.SectorSizeEnum_SECTOR_SIZE_ENUM_4096:
+		return 4096, nil
+	case storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED:
+		return 0, nil
+	default:
+		return 0, errUnsupportedSectorSize
 	}
-
-	return uint32(i), nil
-}
-
-func uint32ToInt32Checked(u uint32) (int32, error) {
-	if u > math.MaxInt32 {
-		return 0, errUint32OutOfRange
-	}
-
-	return int32(u), nil
 }

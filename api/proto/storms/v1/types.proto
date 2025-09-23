@@ -14,10 +14,10 @@ enum SectorSizeEnum {
     SECTOR_SIZE_ENUM_UNSPECIFIED = 0; 
 
     // OS disk sector size 
-    SECTOR_SIZE_ENUM_512 = 512;
+    SECTOR_SIZE_ENUM_512 = 1;
 
     // Default sector size for volumes/snapshots
-    SECTOR_SIZE_ENUM_4096 = 4096;
+    SECTOR_SIZE_ENUM_4096 = 2;
 }
 
 // Block storage Volume 
