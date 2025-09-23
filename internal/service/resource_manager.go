@@ -2,7 +2,10 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"math/rand"
+	"time"
 
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
@@ -11,16 +14,35 @@ import (
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
 )
 
-func newResourceManager() *ResourceManager {
+var (
+	errUnsupportClientAllocAlgo = errors.New("unsupported client allocation algo")
+)
+
+type ClientAllocAlgo string
+
+const (
+	RoundRobinClientAllocAlgo ClientAllocAlgo = "round-robin"
+	FirstClientAllocAlgo      ClientAllocAlgo = "first"
+	RandomClientAllocAlgo     ClientAllocAlgo = "random"
+)
+
+func newResourceManager(algo ClientAllocAlgo) *ResourceManager {
 	return &ResourceManager{
 		clients:           make(map[string]client.Client),
 		resourceClientMap: map[string]string{},
+		clientAllocAlgo:   algo,
+		clientIdx:         0,
 	}
 }
 
 type ResourceManager struct {
+	// For resource mapping
 	clients           map[string]client.Client // key:value::clientID:clientInstance
 	resourceClientMap map[string]string        // key:value::resourceID:clientID
+
+	// For client allocation
+	clientAllocAlgo ClientAllocAlgo
+	clientIdx       int
 }
 
 // Adds client into ResourceManager and makes it fetchable with uuid.
@@ -36,28 +58,48 @@ func (r *ResourceManager) addClient(clusterID string, a client.Client) error {
 
 //nolint:ireturn // returning interface to support generic type
 func (r *ResourceManager) allocateClient() (string, client.Client, error) {
-	// TODO - using client allocation algorithm instead
-	clientIDs := lo.Keys(r.clients)
-	if len(clientIDs) == 0 {
-		return "", nil, errNoClients
-	}
+	switch r.clientAllocAlgo {
+	case RoundRobinClientAllocAlgo:
+		clientID := lo.Keys(r.clients)[r.clientIdx]
+		c := r.clients[clientID]
 
-	return clientIDs[0], r.clients[clientIDs[0]], nil
+		r.clientIdx = (r.clientIdx + 1) % len(lo.Keys(r.clients)) // Rotate to "next" client
+
+		return clientID, c, nil
+
+	case FirstClientAllocAlgo:
+		clientIDs := lo.Keys(r.clients)
+		if len(clientIDs) == 0 {
+			return "", nil, errNoClients
+		}
+
+		return clientIDs[0], r.clients[clientIDs[0]], nil
+
+	case RandomClientAllocAlgo:
+		clientIDs := lo.Keys(r.clients)
+		_rand := rand.New(rand.NewSource(time.Now().UnixNano())) //nolint:gosec // we do not need a stronger rng here
+		clientID := clientIDs[_rand.Intn(len(clientIDs))]
+
+		return clientID, r.clients[clientID], nil
+
+	default:
+		return "", nil, errUnsupportClientAllocAlgo
+	}
 }
 
 //nolint:ireturn // returning interface to support generic type
-func (r *ResourceManager) getClientForResource(resourceID string) (client.Client, error) {
+func (r *ResourceManager) getClientForResource(resourceID string) (string, client.Client, error) {
 	clientID, ok := r.resourceClientMap[resourceID]
 	if !ok {
-		return nil, errUnmappedResource
+		return "", nil, errUnmappedResource
 	}
 
 	c, ok := r.clients[clientID]
 	if !ok {
-		return nil, fmt.Errorf("failed to retrieve client [id=%s]: %w", clientID, errUnmappedClientID)
+		return "", nil, fmt.Errorf("failed to retrieve client [id=%s]: %w", clientID, errUnmappedClientID)
 	}
 
-	return c, nil
+	return clientID, c, nil
 }
 
 func (r *ResourceManager) getAllClientIDs() []string {
@@ -81,16 +123,18 @@ func (r *ResourceManager) fetchAllResourcesFromClient(clientID string) ([]string
 	}
 
 	// Fetch all volumes.
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
 	log.Info().Msgf("[ClientId=%s] - Fetching volumes.", clientID)
-	// TODO: better handle context.
-	getVolResp, err := c.GetVolumes(context.Background(), &models.GetVolumesRequest{})
+	getVolResp, err := c.GetVolumes(ctx, &models.GetVolumesRequest{})
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volumes from client [id=%s]: %w", clientID, err)
 	}
 	volumeIDs := lo.Map(getVolResp.Volumes, func(v *models.Volume, _ int) string {
 		return v.UUID
 	})
-	log.Info().Msgf("[ClientId=%s] Fetched %d volumes.", clientID, len(volumeIDs))
+	log.Info().Msgf("[ClientId=%s] - Fetched %d volumes.", clientID, len(volumeIDs))
 
 	// Fetch all snapshots.
 	log.Info().Msgf("[ClientId=%s] - Fetching snapshots.", clientID)
@@ -102,7 +146,7 @@ func (r *ResourceManager) fetchAllResourcesFromClient(clientID string) ([]string
 	snapshotIDs := lo.Map(getSnapshotResp.Snapshots, func(s *models.Snapshot, _ int) string {
 		return s.UUID
 	})
-	log.Info().Msgf("[ClientId=%s] Fetched %d snapshots.", clientID, len(snapshotIDs))
+	log.Info().Msgf("[ClientId=%s] - Fetched %d snapshots.", clientID, len(snapshotIDs))
 
 	return append(volumeIDs, snapshotIDs...), nil
 }

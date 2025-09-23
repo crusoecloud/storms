@@ -41,7 +41,7 @@ type Service struct {
 func NewService(endpoint string) *Service {
 	s := &Service{
 		endpoint:         endpoint,
-		ResourceManager:  newResourceManager(),
+		ResourceManager:  newResourceManager(RoundRobinClientAllocAlgo),
 		ClientTranslator: NewClientTranslator(),
 	}
 
@@ -99,7 +99,7 @@ func (s *Service) fetchClusterMetadata() error {
 
 	for _, clientID := range s.ResourceManager.getAllClientIDs() {
 		resourceIDs, err := s.ResourceManager.fetchAllResourcesFromClient(clientID)
-		log.Info().Msgf("[ClientID: %s] - Found %d resources", clientID, len(resourceIDs))
+		log.Info().Msgf("[ClientID=%s] - Found %d resources", clientID, len(resourceIDs))
 		if err != nil {
 			return fmt.Errorf("failed to fetch all resources from client: %w", err)
 		}

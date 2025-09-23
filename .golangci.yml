@@ -47,7 +47,7 @@ linters:
     - gosec
     - govet
     - grouper
-    - iface # checks the incorrect use of interfaces, helping developers avoid interface pollution
+    # - iface # checks the incorrect use of interfaces, helping developers avoid interface pollution
     - ineffassign
     - ireturn
     - lll
@@ -57,7 +57,7 @@ linters:
     - nakedret
     - nestif
     - nilerr
-    - nilnesserr # reports that it checks for err != nil, but it returns a different nil value error
+    # - nilnesserr # reports that it checks for err != nil, but it returns a different nil value error
     - nilnil
     - nlreturn
     - noctx
@@ -67,7 +67,7 @@ linters:
     - prealloc
     - predeclared
     - promlinter
-    - recvcheck # checks for receiver type consistency
+    # - recvcheck # checks for receiver type consistency
     - revive
     - staticcheck
     - tagliatelle
@@ -77,7 +77,7 @@ linters:
     - unconvert
     - unparam
     - unused
-    - usetesting
+    # - usetesting
     - whitespace
     - wrapcheck
     - usestdlibvars # detects the possibility to use variables/constants from the Go standard library

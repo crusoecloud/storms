@@ -9,6 +9,7 @@ import (
 	"gopkg.in/yaml.v2"
 
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
+	"gitlab.com/crusoeenergy/island/storage/storms/client/vendors/krusoe"
 	"gitlab.com/crusoeenergy/island/storage/storms/client/vendors/lightbits"
 	"gitlab.com/crusoeenergy/island/storage/storms/client/vendors/purestorage"
 )
@@ -37,7 +38,7 @@ type Client interface {
 	GetCloneStatus(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error)
 }
 
-//nolint:ireturn // need to return interface to support generic type
+//nolint:ireturn,cyclop // need to return interface to support generic type; multipliex function
 func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 	cfgBytes, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -58,6 +59,7 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 		}
 
 		return clientAdapter, nil
+
 	case "purestorage":
 		var cfg purestorage.ClientConfig
 		if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
@@ -71,6 +73,18 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 		}
 
 		return client, nil
+
+	case "krusoe":
+		// var cfg kurose
+		var cfg krusoe.Config
+		if err := krusoe.ParseConfig(cfgBytes, &cfg); err != nil {
+			return nil, fmt.Errorf("failed to parse Krusoe config: %w", err)
+		}
+
+		client := krusoe.NewClient(cfg)
+
+		return client, nil
+
 	default:
 		return nil, errUnsupportedVendor
 	}
