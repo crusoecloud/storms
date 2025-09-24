@@ -127,7 +127,8 @@ func (b *backend) attachVolume(apiKey, id string, acls []string) (*Volume, error
 	return v, nil
 }
 
-func (b *backend) detachVolume(apiKey, id string) (*Volume, error) {
+//nolint:revive,unparam // will need to update when supporting multi-attach, detach acls
+func (b *backend) detachVolume(apiKey, id string, acls []string) (*Volume, error) {
 	if apiKey != secretAPIKey {
 		return nil, errAuth
 	}

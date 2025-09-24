@@ -55,7 +55,6 @@ func Test_bytesToGiBString(t *testing.T) {
 		require.Equal(t, actual, tt.expected)
 
 	}
-
 }
 
 func Test_stringToUint64(t *testing.T) {
@@ -128,7 +127,6 @@ func Test_volumeStateToIsAvail(t *testing.T) {
 		input    VolumeState
 		expected bool
 	}{
-
 		{
 			name:     "VolumeStateUnknown",
 			input:    VolumeStateUnknown,
@@ -190,7 +188,6 @@ func Test_snapshotStateToIsAvail(t *testing.T) {
 		input    SnapshotState
 		expected bool
 	}{
-
 		{
 			name:     "SnapshotStateUnknown",
 			input:    SnapshotStateUnknown,

@@ -47,12 +47,12 @@ func (ct *ClientTranslator) AttachVolume(ctx context.Context, c client.Client, r
 
 func (ct *ClientTranslator) CloneSnapshot(_ context.Context, _ client.Client, _ *storms.CloneSnapshotRequest,
 ) (*storms.CloneSnapshotResponse, error) {
-	return nil, fmt.Errorf("not implemented") //nolint:err113 // wip
+	return nil, fmt.Errorf("not implemented") 
 }
 
 func (ct *ClientTranslator) CloneVolume(_ context.Context, _ client.Client, _ *storms.CloneVolumeRequest,
 ) (*storms.CloneVolumeResponse, error) {
-	return nil, fmt.Errorf("not implemented") //nolint:err113 // wip
+	return nil, fmt.Errorf("not implemented") 
 }
 
 func (ct *ClientTranslator) CreateSnapshot(ctx context.Context, c client.Client, req *storms.CreateSnapshotRequest,
@@ -140,6 +140,7 @@ func (ct *ClientTranslator) DetachVolume(ctx context.Context, c client.Client, r
 ) (*storms.DetachVolumeResponse, error) {
 	translatedReq := &models.DetachVolumeRequest{
 		UUID: req.GetUuid(),
+		Acls: req.GetAcls(),
 	}
 
 	_, err := c.DetachVolume(ctx, translatedReq)
@@ -154,7 +155,7 @@ func (ct *ClientTranslator) DetachVolume(ctx context.Context, c client.Client, r
 
 func (ct *ClientTranslator) GetCloneStatus(_ context.Context, _ client.Client, _ *storms.GetCloneStatusRequest,
 ) (*storms.GetCloneStatusResponse, error) {
-	return nil, fmt.Errorf("not implemented") //nolint:err113 // wip
+	return nil, fmt.Errorf("not implemented") 
 }
 
 func (ct *ClientTranslator) GetSnapshot(ctx context.Context, c client.Client, req *storms.GetSnapshotRequest,

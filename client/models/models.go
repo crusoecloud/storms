@@ -78,6 +78,7 @@ type AttachVolumeResponse struct {
 
 type DetachVolumeRequest struct {
 	UUID string
+	Acls []string
 }
 
 type DetachVolumeResponse struct {

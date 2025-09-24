@@ -16,8 +16,8 @@ BUILDDIR := ${PREFIX}/dist
 # Set any default go build tags
 BUILDTAGS :=
 
-GOLANGCI_VERSION = v1.59.1
-TOOLS_VERSION = v0.7.0
+GOLANGCI_VERSION = v1.55.1
+TOOLS_VERSION = v0.8.12
 GO_ACC_VERSION = latest
 GOTESTSUM_VERSION = v1.12.2 # incrementing this will require go1.23
 GOCOVER_VERSION = latest

@@ -1,4 +1,4 @@
-//nolint:err113,revive,lll,golines // skeleton code
+//nolint:revive,lll // skeleton code
 package purestorage
 
 import (

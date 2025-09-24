@@ -174,6 +174,7 @@ func Test_CloneSnapshot(t *testing.T) {
 		require.Error(t, err) // Expected, because not implemented.
 	}
 }
+
 func Test_CloneVolume(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -282,6 +283,7 @@ func Test_CreateVolume(t *testing.T) {
 		require.NotNil(t, res)
 	}
 }
+
 func Test_DeleteSnapshot(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -316,6 +318,7 @@ func Test_DeleteSnapshot(t *testing.T) {
 
 	}
 }
+
 func Test_DeleteVolume(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -350,6 +353,7 @@ func Test_DeleteVolume(t *testing.T) {
 
 	}
 }
+
 func Test_DetachVolume(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -384,6 +388,7 @@ func Test_DetachVolume(t *testing.T) {
 
 	}
 }
+
 func Test_GetCloneStatus(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -469,7 +474,6 @@ func Test_GetSnapshot(t *testing.T) {
 		require.True(t, res.Snapshot.IsAvailable)
 		require.Equal(t, res.Snapshot.Uuid, snapshotUUID)
 	}
-
 }
 
 func Test_GetSnapshots(t *testing.T) {
@@ -506,6 +510,7 @@ func Test_GetSnapshots(t *testing.T) {
 
 	}
 }
+
 func Test_GetVolume(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -551,6 +556,7 @@ func Test_GetVolume(t *testing.T) {
 
 	}
 }
+
 func Test_GetVolumes(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -585,6 +591,7 @@ func Test_GetVolumes(t *testing.T) {
 
 	}
 }
+
 func Test_ResizeVolume(t *testing.T) {
 	tests := []struct {
 		name      string

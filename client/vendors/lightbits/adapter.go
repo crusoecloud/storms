@@ -172,9 +172,16 @@ func (a *ClientAdapter) AttachVolume(_ context.Context, req *models.AttachVolume
 		return nil, errMustHaveOneACL
 	}
 
-	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{ACL: &ACL{Values: req.Acls}})
+	addNodes := req.Acls
+	removeNodes := []string{}
+	acl := constructACLSet(getVolResp.ACL.Values, addNodes, removeNodes)
+	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{
+		ACL: &ACL{
+			Values: acl,	
+		},
+	})
 	if err != nil {
-		return nil, fmt.Errorf("failed to update volume: %w", err)
+		return nil, fmt.Errorf("failed to attach volume: %w", err)
 	}
 
 	return &models.AttachVolumeResponse{
@@ -187,12 +194,24 @@ func (a *ClientAdapter) DetachVolume(_ context.Context, req *models.DetachVolume
 	name := req.UUID
 	getVolResp, err := a.client.GetVolume(name)
 	if err != nil {
-		return nil, fmt.Errorf("failed to get volume for attachment: %w", err)
+		return nil, fmt.Errorf("failed to get volume for detachment: %w", err)
 	}
 
-	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{ACL: &ACL{Values: []string{ACLNone}}})
+	if len(req.Acls) != 1 {
+		return nil, errMustHaveOneACL
+	}
+
+	addNodes := []string{}
+	removeNodes := req.Acls
+	acl := constructACLSet(getVolResp.ACL.Values, addNodes, removeNodes)
+	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{
+		ACL: &ACL{
+			Values: acl,
+		},
+	})
+
 	if err != nil {
-		return nil, fmt.Errorf("failed to update volume: %w", err)
+		return nil, fmt.Errorf("failed to detach volume: %w", err)
 	}
 
 	return &models.DetachVolumeResponse{
