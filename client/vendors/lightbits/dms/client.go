@@ -9,9 +9,9 @@ func NewClient() (*Client, error) {
 }
 
 func (c *Client) CloneResource() error {
-	return fmt.Errorf("not implemented") //nolint:err113 // wip
+	return fmt.Errorf("not implemented") 
 }
 
 func (c *Client) GetCloneStatus() error {
-	return fmt.Errorf("not implemented") //nolint:err113 // wip
+	return fmt.Errorf("not implemented") 
 }

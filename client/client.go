@@ -38,7 +38,7 @@ type Client interface {
 	GetCloneStatus(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error)
 }
 
-//nolint:ireturn,cyclop // need to return interface to support generic type; multipliex function
+//nolint:ireturn,cyclop,nolintlint // need to return interface to support generic type; multipliex function
 func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 	cfgBytes, err := yaml.Marshal(cfg)
 	if err != nil {

@@ -14,9 +14,7 @@ import (
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
 )
 
-var (
-	errUnsupportClientAllocAlgo = errors.New("unsupported client allocation algo")
-)
+var errUnsupportClientAllocAlgo = errors.New("unsupported client allocation algo")
 
 type ClientAllocAlgo string
 
@@ -56,7 +54,7 @@ func (r *ResourceManager) addClient(clusterID string, a client.Client) error {
 	return nil
 }
 
-//nolint:ireturn // returning interface to support generic type
+//nolint:ireturn,nolintlint // returning interface to support generic type
 func (r *ResourceManager) allocateClient() (string, client.Client, error) {
 	switch r.clientAllocAlgo {
 	case RoundRobinClientAllocAlgo:
@@ -87,7 +85,7 @@ func (r *ResourceManager) allocateClient() (string, client.Client, error) {
 	}
 }
 
-//nolint:ireturn // returning interface to support generic type
+//nolint:ireturn,nolintlint // returning interface to support generic type
 func (r *ResourceManager) getClientForResource(resourceID string) (string, client.Client, error) {
 	clientID, ok := r.resourceClientMap[resourceID]
 	if !ok {
@@ -106,7 +104,7 @@ func (r *ResourceManager) getAllClientIDs() []string {
 	return lo.Keys(r.clients)
 }
 
-//nolint:ireturn // returning interface to support generic type
+//nolint:ireturn,nolintlint // returning interface to support generic type
 func (r *ResourceManager) getClient(id string) (client.Client, error) {
 	val, ok := r.clients[id]
 	if !ok {

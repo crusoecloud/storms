@@ -131,7 +131,7 @@ func (c *Client) AttachVolume(_ context.Context, req *models.AttachVolumeRequest
 ) (*models.AttachVolumeResponse, error) {
 	_, err := c.backend.attachVolume(c.apiKey, req.UUID, req.Acls)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resize volume: %w", err)
+		return nil, fmt.Errorf("failed to attach volume: %w", err)
 	}
 
 	return &models.AttachVolumeResponse{}, nil
@@ -139,9 +139,9 @@ func (c *Client) AttachVolume(_ context.Context, req *models.AttachVolumeRequest
 
 func (c *Client) DetachVolume(_ context.Context, req *models.DetachVolumeRequest,
 ) (*models.DetachVolumeResponse, error) {
-	_, err := c.backend.detachVolume(c.apiKey, req.UUID)
+	_, err := c.backend.detachVolume(c.apiKey, req.UUID, req.Acls)
 	if err != nil {
-		return nil, fmt.Errorf("failed to resize volume: %w", err)
+		return nil, fmt.Errorf("failed to detach volume: %w", err)
 	}
 
 	return &models.DetachVolumeResponse{}, nil

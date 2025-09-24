@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"math"
 	"strconv"
+
+	"github.com/rs/zerolog/log"
 )
 
 var errIntOutOfRange = errors.New("integer out of range")
@@ -40,4 +42,33 @@ func intToUint32Checked(i int) (uint32, error) {
 	}
 
 	return uint32(i), nil
+}
+
+func constructACLSet(volumeACL, addNodes, removeNodes []string) []string {
+	// Construct a set from existing ACL values. Add and remove elements
+	// as specified in the request.
+	log.Info().Msgf("Update LB ACL input: [volumeACL=%s] [addNodes=%s] [removeNodes=%s]", volumeACL, addNodes, removeNodes)
+	aclSet := map[string]struct{}{
+		ACLNone: {},
+	}
+	for _, existing := range volumeACL {
+		aclSet[existing] = struct{}{}
+	}
+	for _, add := range addNodes {
+		aclSet[add] = struct{}{}
+	}
+	for _, remove := range removeNodes {
+		delete(aclSet, remove)
+	}
+	if len(aclSet) > 1 {
+		delete(aclSet, ACLNone)
+	}
+
+	acl := make([]string, 0, len(aclSet))
+	for nqn := range aclSet {
+		acl = append(acl, nqn)
+	}
+	log.Info().Msgf("Updated LB ACL result: %s", acl)
+	
+	return acl
 }
