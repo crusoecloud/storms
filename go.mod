@@ -1,10 +1,11 @@
 module gitlab.com/crusoeenergy/island/storage/storms
 
-go 1.22.0
+go 1.22
 
 require (
 	github.com/envoyproxy/protoc-gen-validate v1.2.1
 	github.com/google/uuid v1.6.0
+	github.com/olekukonko/tablewriter v1.1.0
 	github.com/ory/viper v1.7.5
 	github.com/rs/zerolog v1.28.0
 	github.com/samber/lo v1.51.0
@@ -17,6 +18,14 @@ require (
 )
 
 require (
+	github.com/fatih/color v1.15.0 // indirect
+	github.com/mattn/go-runewidth v0.0.16 // indirect
+	github.com/olekukonko/errors v1.1.0 // indirect
+	github.com/olekukonko/ll v0.0.9 // indirect
+	github.com/rivo/uniseg v0.2.0 // indirect
+)
+
+require (
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/dgraph-io/ristretto v0.0.1 // indirect
@@ -25,7 +34,7 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
-	github.com/mattn/go-isatty v0.0.17 // indirect
+	github.com/mattn/go-isatty v0.0.19 // indirect
 	github.com/mitchellh/mapstructure v1.5.0 // indirect
 	github.com/pelletier/go-toml v1.2.0 // indirect
 	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect

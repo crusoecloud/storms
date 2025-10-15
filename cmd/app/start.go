@@ -1,4 +1,4 @@
-package cmd
+package app
 
 import (
 	"fmt"
@@ -6,13 +6,14 @@ import (
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
 
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/utils"
 	"gitlab.com/crusoeenergy/island/storage/storms/internal/app"
 	appconfigs "gitlab.com/crusoeenergy/island/storage/storms/internal/app/configs"
 )
 
-func newServeCmd() *cobra.Command {
+func NewStartCmd(_ *utils.CmdFactory) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "serve",
+		Use:   "start",
 		Short: "Start the Storage Management Service application",
 		RunE:  serveCmdFunc,
 	}

@@ -1,7 +1,5 @@
 package models
 
-import timestamppb "google.golang.org/protobuf/types/known/timestamppb"
-
 // --- Begin resources
 
 type Volume struct {
@@ -40,11 +38,28 @@ type GetVolumesResponse struct {
 }
 
 type CreateVolumeRequest struct {
-	UUID       string
+	UUID   string
+	Source CreateVolumeSource
+}
+
+type CreateVolumeSource interface {
+	isCreateVolumeSource()
+}
+
+type NewVolumeSpec struct {
 	Size       uint64
 	SectorSize uint32
-	Acls       []string
 }
+
+// isCreateVolumeSource implements the CreateVolumeSource interface for NewVolumeSpec.
+func (NewVolumeSpec) isCreateVolumeSource() {}
+
+type SnapshotSource struct {
+	SnapshotUUID string
+}
+
+// isCreateVolumeSource implements the CreateVolumeSource interface for SnapshotSource.
+func (SnapshotSource) isCreateVolumeSource() {}
 
 type CreateVolumeResponse struct {
 	Volume *Volume
@@ -103,8 +118,6 @@ type GetSnapshotsResponse struct {
 
 type CreateSnapshotRequest struct {
 	UUID             string
-	Size             uint64
-	SectorSize       uint32
 	SourceVolumeUUID string
 }
 
@@ -118,32 +131,4 @@ type DeleteSnapshotRequest struct {
 
 type DeleteSnapshotResponse struct {
 	// Empty; ACK
-}
-
-type CloneVolumeRequest struct {
-	SrcSnapshotUUID string
-	DstVolumeUUID   string
-}
-
-type CloneVolumeResponse struct {
-	OperationID string
-}
-
-type CloneSnapshotRequest struct {
-	SrcSnaphotUUID  string
-	DstSnapshotUUID string
-}
-
-type CloneSnapshotResponse struct {
-	OperationID string
-}
-
-type GetCloneStatusRequest struct {
-	OperationID string
-}
-
-type GetCloneStatusResponse struct {
-	OperationID string
-	CreatedAt   *timestamppb.Timestamp
-	EndedAt     *timestamppb.Timestamp
 }

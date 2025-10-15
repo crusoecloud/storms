@@ -1,0 +1,6 @@
+#vendor-specific config
+
+auth_token: "this_is_an_auth_token"
+addr_strs: ['1.1.1.1:1', '2.2.2.2:2']
+project_name: "unit-test"
+replication_factor: 3

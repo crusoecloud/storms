@@ -1,0 +1,37 @@
+syntax = "proto3";
+
+// import "validate/validate.proto";
+// import "storms/v1/types.proto";
+// import "common/field_option/field_option.proto";
+
+// // Import the types so we can reference Volume and Snapshot
+
+// // Go code will be generated in this package.
+option go_package = "gitlab.com/crusoeenergy/island/storage/storms/gen/go/admin/v1;adminpb";
+package admin.v1;
+
+service AdminService {
+  // ReloadConfig triggers a live reload of the application's configuration.
+  rpc ReloadConfig(ReloadConfigRequest) returns (ReloadConfigResponse) {}
+
+  rpc ShowClusters(ShowClustersRequest) returns (ShowClustersResponse) {}
+}
+
+// The request message for ReloadConfig. Currently empty, but can be extended later.
+message ReloadConfigRequest {}
+
+// The response message for ReloadConfig, providing feedback on the operation.
+message ReloadConfigResponse {}
+
+message ShowClustersRequest {}
+
+message ShowClustersResponse {
+  // // Map of cluster ID to number of resources in that cluster
+  repeated Cluster clusters = 1;
+}
+
+message Cluster {
+  string id = 1;
+  string vendor = 2;
+  map<string,int32> resource_count = 3;
+}

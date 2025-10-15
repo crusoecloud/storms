@@ -1,4 +1,4 @@
-package service
+package translator
 
 import (
 	"context"
@@ -28,9 +28,6 @@ type mockClient struct {
 	mockGetSnapshots   func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error)
 	mockCreateSnapshot func(ctx context.Context, req *models.CreateSnapshotRequest) (*models.CreateSnapshotResponse, error)
 	mockDeleteSnapshot func(ctx context.Context, req *models.DeleteSnapshotRequest) (*models.DeleteSnapshotResponse, error)
-	mockCloneVolume    func(ctx context.Context, req *models.CloneVolumeRequest) (*models.CloneVolumeResponse, error)
-	mockCloneSnapshot  func(ctx context.Context, req *models.CloneSnapshotRequest) (*models.CloneSnapshotResponse, error)
-	mockGetCloneStatus func(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error)
 }
 
 func (m *mockClient) GetVolume(ctx context.Context, req *models.GetVolumeRequest) (*models.GetVolumeResponse, error) {
@@ -75,18 +72,6 @@ func (m *mockClient) CreateSnapshot(ctx context.Context, req *models.CreateSnaps
 
 func (m *mockClient) DeleteSnapshot(ctx context.Context, req *models.DeleteSnapshotRequest) (*models.DeleteSnapshotResponse, error) {
 	return m.mockDeleteSnapshot(ctx, req)
-}
-
-func (m *mockClient) CloneVolume(ctx context.Context, req *models.CloneVolumeRequest) (*models.CloneVolumeResponse, error) {
-	return m.mockCloneVolume(ctx, req)
-}
-
-func (m *mockClient) CloneSnapshot(ctx context.Context, req *models.CloneSnapshotRequest) (*models.CloneSnapshotResponse, error) {
-	return m.mockCloneSnapshot(ctx, req)
-}
-
-func (m *mockClient) GetCloneStatus(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error) {
-	return m.mockGetCloneStatus(ctx, req)
 }
 
 func Test_AttachVolume(t *testing.T) {
@@ -146,63 +131,6 @@ func Test_AttachVolume(t *testing.T) {
 	}
 }
 
-func Test_CloneSnapshot(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     *storms.CloneSnapshotRequest
-		expect    *storms.CloneSnapshotResponse
-		expectErr bool
-	}{
-		{
-			name:      "valid",
-			input:     &storms.CloneSnapshotRequest{},
-			expect:    &storms.CloneSnapshotResponse{},
-			expectErr: false,
-		},
-	}
-
-	ct := NewClientTranslator()
-	mc := &mockClient{
-		mockCloneSnapshot: func(ctx context.Context, req *models.CloneSnapshotRequest) (*models.CloneSnapshotResponse, error) {
-			return &models.CloneSnapshotResponse{}, nil
-		},
-	}
-
-	for _, tt := range tests {
-		_, err := ct.CloneSnapshot(context.Background(), mc, tt.input)
-
-		require.Error(t, err) // Expected, because not implemented.
-	}
-}
-
-func Test_CloneVolume(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     *storms.CloneVolumeRequest
-		expect    *storms.CloneVolumeResponse
-		expectErr bool
-	}{
-		{
-			name:      "valid",
-			input:     &storms.CloneVolumeRequest{},
-			expect:    &storms.CloneVolumeResponse{},
-			expectErr: false,
-		},
-	}
-
-	ct := NewClientTranslator()
-	mc := &mockClient{
-		mockCloneVolume: func(ctx context.Context, req *models.CloneVolumeRequest) (*models.CloneVolumeResponse, error) {
-			return &models.CloneVolumeResponse{}, nil
-		},
-	}
-
-	for _, tt := range tests {
-		_, err := ct.CloneVolume(context.Background(), mc, tt.input)
-		require.Error(t, err) // Expected, because not implemented.
-	}
-}
-
 func Test_CreateSnapshot(t *testing.T) {
 	tests := []struct {
 		name      string
@@ -213,12 +141,8 @@ func Test_CreateSnapshot(t *testing.T) {
 		{
 			name: "valid request",
 			input: &storms.CreateSnapshotRequest{
-				Snapshot: &storms.Snapshot{
-					Uuid:             uuid.NewString(),
-					Size:             137438953472,
-					SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
-					SourceVolumeUuid: uuid.NewString(),
-				},
+				Uuid:          uuid.NewString(),
+				SrcVolumeUuid: uuid.NewString(),
 			},
 		},
 	}
@@ -250,14 +174,27 @@ func Test_CreateVolume(t *testing.T) {
 		expectErr bool
 	}{
 		{
-			name: "valid",
+			name: "valid new volume",
 			input: &storms.CreateVolumeRequest{
-				Volume: &storms.Volume{
-					Uuid:        uuid.NewString(),
-					Size:        defaultOSDiskSizeBytes,
-					SectorSize:  storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
-					Acls:        []string{},
-					IsAvailable: true,
+				Uuid: uuid.NewString(),
+				Source: &storms.CreateVolumeRequest_FromNew{
+					FromNew: &storms.NewVolumeSpec{
+						Size:       defaultOSDiskSizeBytes,
+						SectorSize: storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
+					},
+				},
+			},
+			expect:    &storms.CreateVolumeResponse{},
+			expectErr: false,
+		},
+		{
+			name: "valid new volume",
+			input: &storms.CreateVolumeRequest{
+				Uuid: uuid.NewString(),
+				Source: &storms.CreateVolumeRequest_FromSnapshot{
+					FromSnapshot: &storms.SnapshotSourceVolumeSpec{
+						SnapshotUuid: uuid.NewString(),
+					},
 				},
 			},
 			expect:    &storms.CreateVolumeResponse{},
@@ -389,34 +326,6 @@ func Test_DetachVolume(t *testing.T) {
 	}
 }
 
-func Test_GetCloneStatus(t *testing.T) {
-	tests := []struct {
-		name      string
-		input     *storms.GetCloneStatusRequest
-		expect    *storms.GetCloneStatusResponse
-		expectErr bool
-	}{
-		{
-			name:      "valid",
-			input:     &storms.GetCloneStatusRequest{},
-			expect:    &storms.GetCloneStatusResponse{},
-			expectErr: false,
-		},
-	}
-
-	ct := NewClientTranslator()
-	mc := &mockClient{
-		mockGetCloneStatus: func(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error) {
-			return &models.GetCloneStatusResponse{}, nil
-		},
-	}
-
-	for _, tt := range tests {
-		_, err := ct.GetCloneStatus(context.Background(), mc, tt.input)
-		require.Error(t, err) // Expected because not implented.
-	}
-}
-
 func Test_GetSnapshot(t *testing.T) {
 	snapshotUUID := "4533ae7a-ef23-43c5-8e94-68dfcd5bedd6"
 	sourceVolumeUUID := "cc23f964-d2d3-40af-a6f5-82b1e0574c93"
@@ -478,35 +387,80 @@ func Test_GetSnapshot(t *testing.T) {
 
 func Test_GetSnapshots(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     *storms.GetSnapshotsRequest
-		expect    *storms.GetSnapshotsResponse
-		expectErr bool
+		name           string
+		input          *storms.GetSnapshotsRequest
+		clientResponse *models.GetSnapshotsResponse
+		clientErr      error
+		expectErr      bool
 	}{
 		{
-			name:      "valid",
-			input:     &storms.GetSnapshotsRequest{},
-			expect:    &storms.GetSnapshotsResponse{},
+			name:  "1 snapshot",
+			input: &storms.GetSnapshotsRequest{},
+			clientResponse: &models.GetSnapshotsResponse{
+				Snapshots: []*models.Snapshot{
+					{
+						UUID:             uuid.NewString(),
+						Size:             defaultOSDiskSizeBytes,
+						SectorSize:       sectorSize512,
+						IsAvailable:      true,
+						SourceVolumeUUID: uuid.NewString(),
+					},
+				},
+			},
+			clientErr: nil,
+			expectErr: false,
+		},
+		{
+			name:  "2 snapshots",
+			input: &storms.GetSnapshotsRequest{},
+			clientResponse: &models.GetSnapshotsResponse{
+				Snapshots: []*models.Snapshot{
+					{
+						UUID:             uuid.NewString(),
+						Size:             defaultOSDiskSizeBytes,
+						SectorSize:       sectorSize512,
+						IsAvailable:      true,
+						SourceVolumeUUID: uuid.NewString(),
+					},
+					{
+						UUID:             uuid.NewString(),
+						Size:             defaultOSDiskSizeBytes,
+						SectorSize:       sectorSize4096,
+						IsAvailable:      false,
+						SourceVolumeUUID: uuid.NewString(),
+					},
+				},
+			},
+			clientErr: nil,
 			expectErr: false,
 		},
 	}
 
-	ct := NewClientTranslator()
-	mc := &mockClient{
-		mockGetSnapshots: func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error) {
-			return &models.GetSnapshotsResponse{}, nil
-		},
-	}
-
 	for _, tt := range tests {
-		res, err := ct.GetSnapshots(context.Background(), mc, tt.input)
-		if tt.expectErr {
-			require.Error(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			ct := NewClientTranslator()
+			mc := &mockClient{
+				mockGetSnapshots: func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error) {
+					return tt.clientResponse, tt.clientErr
+				},
+			}
+			resp, err := ct.GetSnapshots(context.Background(), mc, tt.input)
+			if tt.expectErr {
+				require.Error(t, err)
 
-			continue
-		}
-		require.NoError(t, err)
-		require.NotNil(t, res)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, resp)
+			for i := 0; i < len(tt.clientResponse.Snapshots); i++ {
+				require.Equal(t, tt.clientResponse.Snapshots[i].UUID, resp.Snapshots[i].Uuid)
+				require.Equal(t, tt.clientResponse.Snapshots[i].Size, resp.Snapshots[i].Size)
+				require.Equal(t, tt.clientResponse.Snapshots[i].IsAvailable, resp.Snapshots[i].IsAvailable)
+				require.Equal(t, tt.clientResponse.Snapshots[i].SourceVolumeUUID, resp.Snapshots[i].SourceVolumeUuid)
+
+			}
+		})
 
 	}
 }
@@ -559,35 +513,87 @@ func Test_GetVolume(t *testing.T) {
 
 func Test_GetVolumes(t *testing.T) {
 	tests := []struct {
-		name      string
-		input     *storms.GetVolumesRequest
-		expect    *storms.GetVolumesResponse
-		expectErr bool
+		name           string
+		input          *storms.GetVolumesRequest
+		clientResponse *models.GetVolumesResponse
+		clientErr      error
+		expectErr      bool
 	}{
 		{
-			name:      "valid",
-			input:     &storms.GetVolumesRequest{},
-			expect:    &storms.GetVolumesResponse{},
+			name:  "1 volume",
+			input: &storms.GetVolumesRequest{},
+			clientResponse: &models.GetVolumesResponse{
+				Volumes: []*models.Volume{
+					{
+						UUID:               uuid.NewString(),
+						Size:               uint64(defaultOSDiskSizeBytes),
+						SectorSize:         sectorSize512,
+						Acls:               []string{},
+						IsAvailable:        true,
+						SourceSnapshotUUID: "",
+					},
+				},
+			},
+			clientErr: nil,
+			expectErr: false,
+		},
+		{
+			name:  "2 volumes",
+			input: &storms.GetVolumesRequest{},
+			clientResponse: &models.GetVolumesResponse{
+				Volumes: []*models.Volume{
+					{
+						UUID:               uuid.NewString(),
+						Size:               uint64(defaultOSDiskSizeBytes),
+						SectorSize:         sectorSize512,
+						Acls:               []string{},
+						IsAvailable:        true,
+						SourceSnapshotUUID: "",
+					},
+					{
+						UUID:               uuid.NewString(),
+						Size:               uint64(defaultOSDiskSizeBytes),
+						SectorSize:         sectorSize4096,
+						Acls:               []string{uuid.NewString()},
+						IsAvailable:        false,
+						SourceSnapshotUUID: uuid.NewString(),
+					},
+				},
+			},
+			clientErr: nil,
 			expectErr: false,
 		},
 	}
 
-	ct := NewClientTranslator()
-	mc := &mockClient{
-		mockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
-			return &models.GetVolumesResponse{}, nil
-		},
-	}
-
 	for _, tt := range tests {
-		res, err := ct.GetVolumes(context.Background(), mc, tt.input)
-		if tt.expectErr {
-			require.Error(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			ct := NewClientTranslator()
+			mc := &mockClient{
+				mockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
+					return tt.clientResponse, tt.clientErr
+				},
+			}
 
-			continue
-		}
-		require.NoError(t, err)
-		require.NotNil(t, res)
+			resp, err := ct.GetVolumes(context.Background(), mc, tt.input)
+			if tt.expectErr {
+				require.Error(t, err)
+				require.Nil(t, resp)
+
+				return
+			}
+
+			require.NoError(t, err)
+			require.Equal(t, len(tt.clientResponse.Volumes), len(resp.Volumes))
+
+			for i := 0; i < len(tt.clientResponse.Volumes); i++ {
+				require.Equal(t, tt.clientResponse.Volumes[i].UUID, resp.Volumes[i].Uuid)
+				require.Equal(t, tt.clientResponse.Volumes[i].Size, resp.Volumes[i].Size)
+				require.Equal(t, tt.clientResponse.Volumes[i].IsAvailable, resp.Volumes[i].IsAvailable)
+				require.Equal(t, tt.clientResponse.Volumes[i].SourceSnapshotUUID, resp.Volumes[i].SourceSnapshotUuid)
+
+			}
+		},
+		)
 
 	}
 }
@@ -607,22 +613,106 @@ func Test_ResizeVolume(t *testing.T) {
 		},
 	}
 
-	ct := NewClientTranslator()
-	mc := &mockClient{
-		mockResizeVolume: func(ctx context.Context, req *models.ResizeVolumeRequest) (*models.ResizeVolumeResponse, error) {
-			return &models.ResizeVolumeResponse{}, nil
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ct := NewClientTranslator()
+			mc := &mockClient{
+				mockResizeVolume: func(ctx context.Context, req *models.ResizeVolumeRequest) (*models.ResizeVolumeResponse, error) {
+					return &models.ResizeVolumeResponse{}, nil
+				},
+			}
+			res, err := ct.ResizeVolume(context.Background(), mc, tt.input)
+			if tt.expectErr {
+				require.Error(t, err)
+
+				return
+			}
+			require.NoError(t, err)
+			require.NotNil(t, res)
+		},
+		)
+	}
+}
+
+func Test_translateUint32ToSectorSizeEnum(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    uint32
+		expected storms.SectorSizeEnum
+	}{
+		{
+			name:     "4096",
+			input:    uint32(4096),
+			expected: storms.SectorSizeEnum_SECTOR_SIZE_ENUM_4096,
+		},
+		{
+			name:     "512",
+			input:    uint32(512),
+			expected: storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
+		},
+		{
+			name:     "0",
+			input:    uint32(0),
+			expected: storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED,
+		},
+		{
+			name:     "unsupported",
+			input:    uint32(1234),
+			expected: storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED,
 		},
 	}
 
 	for _, tt := range tests {
-		res, err := ct.ResizeVolume(context.Background(), mc, tt.input)
-		if tt.expectErr {
-			require.Error(t, err)
+		t.Run(tt.name, func(t *testing.T) {
+			actual := translateUint32ToSectorSizeEnum(tt.input)
+			require.Equal(t, tt.expected, actual)
+		})
+	}
+}
 
-			continue
-		}
-		require.NoError(t, err)
-		require.NotNil(t, res)
+func Test_translateSectorSizeEnumToUint32(t *testing.T) {
+	tests := []struct {
+		name      string
+		input     storms.SectorSizeEnum
+		expected  uint32
+		expectErr bool
+	}{
+		{
+			name:      "sector size 512",
+			input:     storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
+			expected:  512,
+			expectErr: false,
+		},
+		{
+			name:      "sector size 4096",
+			input:     storms.SectorSizeEnum_SECTOR_SIZE_ENUM_4096,
+			expected:  4096,
+			expectErr: false,
+		},
+		{
+			name:      "sector size unspecified",
+			input:     storms.SectorSizeEnum_SECTOR_SIZE_ENUM_UNSPECIFIED,
+			expected:  0,
+			expectErr: false,
+		},
+		{
+			name:      "sector size unsupported",
+			input:     storms.SectorSizeEnum(7),
+			expected:  0,
+			expectErr: true,
+		},
+	}
 
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			actual, err := translateSectorSizeEnumToUint32(tt.input)
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+
+			require.Equal(t, actual, tt.expected)
+		})
 	}
 }

@@ -1,11 +1,10 @@
-package service
+package translator
 
 import (
 	"context"
 	"errors"
 	"fmt"
 
-	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 
 	storms "gitlab.com/crusoeenergy/island/storage/storms/api/gen/go/storms/v1"
@@ -13,7 +12,12 @@ import (
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
 )
 
-var errUnsupportedSectorSize = errors.New("unsupported sector size")
+var (
+	errUnsupportedSectorSize        = errors.New("unsupported sector size")
+	errNilNewVolumeSpecs            = errors.New("nil new volume specs")
+	errNilSnapshotSourceVolumeSpecs = errors.New("nil snapshot-source volume specs")
+	errUnsupportVolumeSource        = errors.New("unsupported or missing volume source in request")
+)
 
 // The ClientTranslator translates federation service requests/responses to and from generic client request/responses.
 //
@@ -45,30 +49,14 @@ func (ct *ClientTranslator) AttachVolume(ctx context.Context, c client.Client, r
 	}, nil
 }
 
-func (ct *ClientTranslator) CloneSnapshot(_ context.Context, _ client.Client, _ *storms.CloneSnapshotRequest,
-) (*storms.CloneSnapshotResponse, error) {
-	return nil, fmt.Errorf("not implemented") 
-}
-
-func (ct *ClientTranslator) CloneVolume(_ context.Context, _ client.Client, _ *storms.CloneVolumeRequest,
-) (*storms.CloneVolumeResponse, error) {
-	return nil, fmt.Errorf("not implemented") 
-}
-
 func (ct *ClientTranslator) CreateSnapshot(ctx context.Context, c client.Client, req *storms.CreateSnapshotRequest,
 ) (*storms.CreateSnapshotResponse, error) {
-	sectorSize, err := translateSectorSizeEnumToUint32(req.Snapshot.SectorSize) // translate enum to actual size
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert int32 to uint32: %w", err)
-	}
 	translatedReq := &models.CreateSnapshotRequest{
-		UUID:             req.Snapshot.GetUuid(),
-		Size:             req.Snapshot.GetSize(),
-		SectorSize:       sectorSize,
-		SourceVolumeUUID: req.Snapshot.GetSourceVolumeUuid(),
+		UUID:             req.GetUuid(),
+		SourceVolumeUUID: req.SrcVolumeUuid,
 	}
 
-	_, err = c.CreateSnapshot(ctx, translatedReq)
+	_, err := c.CreateSnapshot(ctx, translatedReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot: %w", err)
 	}
@@ -80,21 +68,43 @@ func (ct *ClientTranslator) CreateSnapshot(ctx context.Context, c client.Client,
 
 func (ct *ClientTranslator) CreateVolume(ctx context.Context, c client.Client, req *storms.CreateVolumeRequest,
 ) (*storms.CreateVolumeResponse, error) {
-	sectorSize, err := translateSectorSizeEnumToUint32(req.Volume.SectorSize)
-	if err != nil {
-		return nil, fmt.Errorf("failed to convert int32 to uint32: %w", err)
-	}
-
-	log.Info().Msgf("create volume in c translator: %d", sectorSize)
-
 	translatedReq := &models.CreateVolumeRequest{
-		UUID:       req.Volume.GetUuid(),
-		Size:       req.Volume.GetSize(),
-		SectorSize: sectorSize,
-		Acls:       req.Volume.GetAcls(),
+		UUID: req.GetUuid(),
 	}
 
-	_, err = c.CreateVolume(ctx, translatedReq)
+	switch source := req.GetSource().(type) {
+	case *storms.CreateVolumeRequest_FromNew:
+		spec := source.FromNew
+		if spec == nil {
+			return nil, errNilNewVolumeSpecs
+		}
+
+		sectorSize, err := translateSectorSizeEnumToUint32(spec.GetSectorSize())
+		if err != nil {
+			return nil, fmt.Errorf("failed to translate sector size: %w", err)
+		}
+
+		translatedReq.Source = &models.NewVolumeSpec{
+			Size:       spec.GetSize(),
+			SectorSize: sectorSize,
+		}
+
+	case *storms.CreateVolumeRequest_FromSnapshot:
+		spec := source.FromSnapshot
+		if spec == nil {
+			return nil, errNilSnapshotSourceVolumeSpecs
+		}
+
+		translatedReq.Source = &models.SnapshotSource{
+			SnapshotUUID: spec.GetSnapshotUuid(),
+		}
+
+	default:
+		// This handles the case where the 'source' oneof is not set.
+		return nil, errUnsupportVolumeSource
+	}
+
+	_, err := c.CreateVolume(ctx, translatedReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume: %w", err)
 	}
@@ -153,11 +163,6 @@ func (ct *ClientTranslator) DetachVolume(ctx context.Context, c client.Client, r
 	}, nil
 }
 
-func (ct *ClientTranslator) GetCloneStatus(_ context.Context, _ client.Client, _ *storms.GetCloneStatusRequest,
-) (*storms.GetCloneStatusResponse, error) {
-	return nil, fmt.Errorf("not implemented") 
-}
-
 func (ct *ClientTranslator) GetSnapshot(ctx context.Context, c client.Client, req *storms.GetSnapshotRequest,
 ) (*storms.GetSnapshotResponse, error) {
 	translatedReq := &models.GetSnapshotRequest{
@@ -167,6 +172,10 @@ func (ct *ClientTranslator) GetSnapshot(ctx context.Context, c client.Client, re
 	s, err := c.GetSnapshot(ctx, translatedReq)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get snapshot: %w", err)
+	}
+	snapshot := s.Snapshot
+	if snapshot == nil {
+		return &storms.GetSnapshotResponse{Snapshot: nil}, nil
 	}
 
 	sectorSizeEnum := translateUint32ToSectorSizeEnum(s.Snapshot.SectorSize)
@@ -220,6 +229,9 @@ func (ct *ClientTranslator) GetVolume(ctx context.Context, c client.Client, req 
 		return nil, fmt.Errorf("failed to get volume: %w", err)
 	}
 	vol := clientResp.Volume
+	if vol == nil {
+		return &storms.GetVolumeResponse{Volume: nil}, nil
+	}
 
 	sectorSizeEnum := translateUint32ToSectorSizeEnum(vol.SectorSize)
 
@@ -253,7 +265,7 @@ func (ct *ClientTranslator) GetVolumes(ctx context.Context, c client.Client, _ *
 			Size:               v.Size,
 			SectorSize:         sectorSizeEnum,
 			IsAvailable:        v.IsAvailable,
-			SourceSnapshotUuid: v.SourceSnapshotUUID, // TODO - fix
+			SourceSnapshotUuid: v.SourceSnapshotUUID,
 		}
 	})
 

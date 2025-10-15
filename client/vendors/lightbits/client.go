@@ -18,17 +18,7 @@ import (
 	"gitlab.com/crusoeenergy/island/storage/storms/client/vendors/lightbits/loadbalancer"
 )
 
-//nolint:tagliatelle // using snake case for YAML
-type ClientConfig struct {
-	AddrsStrs         []string `yaml:"addr_strs"`
-	AuthToken         string   `yaml:"auth_token"`
-	ProjectName       string   `yaml:"project_name"`
-	ReplicationFactor int      `yaml:"replication_factor"`
-}
-
 var errNoLightbitsClients = errors.New("error no lightbits clients")
-
-func (ClientConfig) IsClientConfig() {}
 
 // String constants representing the compression state.
 const (
@@ -61,7 +51,7 @@ type loadBalancer interface {
 	Dial() (*loadbalancer.Conn, error)
 }
 
-func NewClientV2(cfg ClientConfig) (*Client, error) {
+func NewClientV2(cfg *ClientConfig) (*Client, error) {
 	addrStrs := cfg.AddrsStrs
 	if len(addrStrs) < 1 {
 		return nil, errNoLightbitsClients
@@ -83,7 +73,7 @@ func NewClientV2(cfg ClientConfig) (*Client, error) {
 	return client, nil
 }
 
-func NewClient(lb loadBalancer, cfg ClientConfig) *Client {
+func NewClient(lb loadBalancer, cfg *ClientConfig) *Client {
 	c := &Client{
 		Client: &http.Client{
 			Transport: &http.Transport{
@@ -128,7 +118,7 @@ func (c *Client) GetVolumes() ([]*Volume, error) {
 		"https://%s/api/v2/projects/%s/volumes?limit=%d",
 		c.addr, c.projectName, pageSize)
 	// maximum duration for the api call
-	maxWaitTimeSeconds := 10
+	maxWaitTimeSeconds := 30
 	maxDuration := time.Duration(maxWaitTimeSeconds) * time.Second
 
 	// Calculate the timeout time

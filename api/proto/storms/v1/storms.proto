@@ -1,7 +1,6 @@
 syntax = "proto3";
 
 import "validate/validate.proto";
-import "google/protobuf/timestamp.proto";
 import "storms/v1/types.proto";
 import "common/field_option/field_option.proto";
 // import "v2/common/component/types_v2.proto";
@@ -54,19 +53,11 @@ service StorageManagementService {
     // Delete a snapshot.
     rpc DeleteSnapshot(DeleteSnapshotRequest) returns (DeleteSnapshotResponse);
 
-    ///////////////////////// CLONING OPERATION /////////////////////////////
-    // Block storage thick-clone operation
-    // For Lightbits disk or volume thick-clone, use DMS in StorMS
-    // For other vendors, possible no-ops
+    // Sync a resource
+    rpc SyncResource(SyncResourceRequest) returns (SyncResourceResponse);
 
-    // Clone a volume
-    rpc CloneVolume(CloneVolumeRequest) returns (CloneVolumeResponse);
-
-    // Clone a snapshot 
-    rpc CloneSnapshot(CloneSnapshotRequest) returns (CloneSnapshotResponse);
-
-    // Retrieve cloner operation status 
-    rpc GetCloneStatus(GetCloneStatusRequest) returns (GetCloneStatusResponse);
+    // Sync all resource from all clusters
+    rpc SyncAllResources(SyncAllResourcesRequest) returns (SyncAllResourcesResponse);
 }
 
 ///////////////////////// StorageManagementService VOLUME /////////////////////////////
@@ -94,8 +85,32 @@ message GetVolumesResponse {
 
 // Request message for StorageManagementService.CreateVolume.
 message CreateVolumeRequest {
-    // newly created volume
-    storms.v1.Volume volume = 1 [(common.field_option.sensitive) = "false"];
+     // Required - UUID of the volume
+    string uuid = 1 [(validate.rules).string.uuid = true];
+
+    // The source from which to create the volume. Choose one of the following.
+    oneof source {
+        // Option 1: Specify details for creating a new, empty volume from scratch.
+        NewVolumeSpec from_new = 3;
+
+        // Option 2: Specify the source snapshot to create the volume from.
+        SnapshotSourceVolumeSpec from_snapshot = 4;
+    }
+}
+
+message NewVolumeSpec {
+    // Size of the new disk, in bytes. Required for creating from scratch.
+    uint64 size = 1 [(validate.rules).uint64.gt = 0];
+
+    // Sector size of the new volume. Required for creating from scratch.
+    SectorSizeEnum sector_size = 2 [(validate.rules).enum.defined_only = true];
+}
+
+// Defines the parameters for creating a volume from an existing snapshot.
+message SnapshotSourceVolumeSpec {
+    // UUID of the source snapshot. The new volume's size and sector size
+    // will be inherited from the snapshot.
+    string snapshot_uuid = 1 [(validate.rules).string.uuid = true];
 }
 
 // Response message for StorageManagementService.CreateVolume.
@@ -165,14 +180,16 @@ message GetSnapshotsRequest {}
 
 // Response message for StorageManagementService.GetSnapshots
 message GetSnapshotsResponse {
-    // all snapshots
     repeated storms.v1.Snapshot snapshots = 1 [(common.field_option.sensitive) = "false"];
 }
 
 // Request message for StorageManagementService.CreateSnapshot.
 message CreateSnapshotRequest {
-    // new snapshot to be created 
-    storms.v1.Snapshot snapshot = 1 [(common.field_option.sensitive) = "false"];
+    // Required - UUID of the snapshot
+    string uuid = 1 [(validate.rules).string.uuid = true];
+    // Required - UUID of the source volume
+    string src_volume_uuid = 2 [(validate.rules).string.uuid = true];
+
 }
 
 // Response message for StorageManagementService.CreateSnapshot.
@@ -187,59 +204,23 @@ message DeleteSnapshotRequest {
 // Response message for StorageManagementService.DeleteSnapshot.
 message DeleteSnapshotResponse {}
 
-///////////////////////// StorageManagementService CLONING /////////////////////////////
+// Request mesage for StorageManagementService.SyncResource
+message SyncResourceRequest {
+    // Required - the resource type
+    ResourceType resource_type = 1 [(validate.rules).enum.defined_only = true];
 
-// Request message for StorageManagementService.CloneVolume. 
-message CloneVolumeRequest {
-    // Required - UUID of the source volume
-    string src_volume_uuid = 1 [(validate.rules).string.uuid = true];
+    // Required - UUID of the resource
+    string uuid = 2 [(validate.rules).string.uuid = true];
 
-    // Required - name of the destination volume
-    string dst_volume_name = 2 [(validate.rules).string.uuid = true];
+    // Required - the UUID of the cluster this resource belongs on
+    string cluster_uuid = 3 [(validate.rules).string.uuid = true];
 }
 
-// Response message for StorageManagementService.CloneVolume. 
-message CloneVolumeResponse {
-    // clone operation id 
-    string operation_id = 1 [(validate.rules).string.uuid = true];
-}
+// Response message for StorageManagementService.SyncResource
+message SyncResourceResponse {}
 
-// Request message for StorageManagementService.CloneSnapshot. 
-message CloneSnapshotRequest {
-    // Required - UUID of the source snapshot
-    string src_snapshot_uuid = 1 [(validate.rules).string.uuid = true];
+// Request message for StorageManagementService.SyncResource
+message SyncAllResourcesRequest{}
 
-    // Required - name of the destination snapshot
-    string dst_snapshot_name = 2 [(validate.rules).string.uuid = true];
-}
-
-// Response message for StorageManagementService.CloneSnapshot. 
-message CloneSnapshotResponse {
-     // clone operation id 
-    string operation_id = 1 [(validate.rules).string.uuid = true];
-}
-
-// Request message for StorageManagementService.GetCloneStatus. 
-message GetCloneStatusRequest {
-    // Required - UUID of the clone operation
-    string operation_id = 1 [(validate.rules).string.uuid = true];
-}
-
-// Response message for StorageManagementService.GetCloneStatus. 
-message GetCloneStatusResponse {
-    // clone operation UUID
-    string operation_id = 1 [(validate.rules).string.uuid = true];
-
-    // the time the operation was created
-    google.protobuf.Timestamp created_at = 2;
-
-    // the time the operation completed
-    google.protobuf.Timestamp ended_at = 3;
-
-    // The state of the operation
-    storms.v1.OperationState state = 4;
-
-    // The percentage of the operation that has been completed.
-    uint32 percent_complete = 5;
-}
-
+// Response mesage for StorageManagementService.SyncResource
+message SyncAllResourcesResponse {}

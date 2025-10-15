@@ -7,7 +7,44 @@ variables: # TODO(template) update these if you have go submodules
   TAG_PREFIX: ""
   CI_IMAGE: "registry.gitlab.com/crusoeenergy/tools/go-ci-1.22"
 
-pages:
-  stage: deploy
-  extends: .pages
-  image: ${CI_IMAGE}:master
+.cache-setup: &cache-setup
+    - mkdir -p .cache
+    - export GOPATH="$CI_PROJECT_DIR/.cache"
+    - export PATH=$PATH:$GOPATH/bin
+
+.code-changes: &code-changes
+  changes:
+    - .gitlab-ci.yml
+    - Makefile
+    - api/**/*
+    - client/**/*
+    - cmd/**/*
+    - go.*
+    - internal/**/*
+
+build_and_push_storms:
+  needs:
+    - job: test_and_lint
+      artifacts: true
+    - job: analyze
+  before_script:
+    - go env -w "GOPRIVATE=${CI_SERVER_HOST}"
+    - echo -e "machine ${CI_SERVER_HOST} login gitlab-ci-token password ${CI_JOB_TOKEN}" > ~/.netrc
+  script:
+    - *cache-setup
+    - |-
+      if [ "$CI_COMMIT_BRANCH" == "main" ] || [ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]
+      then
+       CI_COMMIT_REF_NAME="$RELEASE_VERSION" make cross
+      else
+       CI_COMMIT_REF_NAME="$CI_COMMIT_REF_NAME" make cross
+      fi
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$CI_PROJECT_DIR/dist/storms" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/storms/${CI_COMMIT_REF_NAME}/storms"'
+  rules:
+    - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "prod"'
+      when: never
+    - if: '$CI_COMMIT_BRANCH == "main" || $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+      <<: *code-changes
+    - if: '$CI_MERGE_REQUEST_ID'
+      <<: *code-changes
+    - if: '$CI_COMMIT_TAG && $CI_COMMIT_TAG !~ /^v[0-9]+\.[0-9]+\.[0-9]+$/'

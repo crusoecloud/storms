@@ -12,6 +12,8 @@ import (
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
 )
 
+var errUnsupportVolumeSource = errors.New("unsupport volume source")
+
 type Client struct {
 	apiKey  string
 	backend *backend
@@ -42,7 +44,7 @@ func (c *Client) GetVolume(_ context.Context, req *models.GetVolumeRequest) (*mo
 			Size:               uint64(v.size),
 			Acls:               v.acls,
 			IsAvailable:        true,
-			SourceSnapshotUUID: "",
+			SourceSnapshotUUID: v.srcSnapshotID,
 		},
 	}, nil
 }
@@ -68,7 +70,7 @@ func (c *Client) GetVolumes(_ context.Context, _ *models.GetVolumesRequest) (*mo
 			Size:               uint64(v.size),
 			Acls:               v.acls,
 			IsAvailable:        true,
-			SourceSnapshotUUID: "",
+			SourceSnapshotUUID: v.srcSnapshotID,
 		}
 	})
 
@@ -83,9 +85,22 @@ func (c *Client) GetVolumes(_ context.Context, _ *models.GetVolumesRequest) (*mo
 
 func (c *Client) CreateVolume(_ context.Context, req *models.CreateVolumeRequest,
 ) (*models.CreateVolumeResponse, error) {
-	v, err := c.backend.createVolume(c.apiKey, req.UUID, uint(req.Size), uint(req.SectorSize))
-	if err != nil {
-		return nil, fmt.Errorf("failed to create volume: %w", err)
+	var v *Volume
+	var err error
+
+	switch source := req.Source.(type) {
+	case models.NewVolumeSpec:
+		v, err = c.backend.createNewVolume(c.apiKey, req.UUID, uint(source.Size), uint(source.SectorSize))
+		if err != nil {
+			return nil, fmt.Errorf("failed to create new volume: %w", err)
+		}
+	case models.SnapshotSource:
+		v, err = c.backend.createVolumeFromSnapshot(c.apiKey, req.UUID, source.SnapshotUUID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create volume from snapshot: %w", err)
+		}
+	default:
+		return nil, errUnsupportVolumeSource
 	}
 
 	sectorSize, err := uintToUint32Checked(v.sectorSize)
@@ -99,7 +114,7 @@ func (c *Client) CreateVolume(_ context.Context, req *models.CreateVolumeRequest
 		SectorSize:         sectorSize,
 		Acls:               v.acls,
 		IsAvailable:        true,
-		SourceSnapshotUUID: "",
+		SourceSnapshotUUID: v.srcSnapshotID,
 	}
 
 	return &models.CreateVolumeResponse{
@@ -139,7 +154,7 @@ func (c *Client) AttachVolume(_ context.Context, req *models.AttachVolumeRequest
 
 func (c *Client) DetachVolume(_ context.Context, req *models.DetachVolumeRequest,
 ) (*models.DetachVolumeResponse, error) {
-	_, err := c.backend.detachVolume(c.apiKey, req.UUID, req.Acls)
+	_, err := c.backend.detachVolume(c.apiKey, req.UUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detach volume: %w", err)
 	}
@@ -163,7 +178,7 @@ func (c *Client) GetSnapshot(_ context.Context, req *models.GetSnapshotRequest) 
 		SectorSize:       sectorSize,
 		Size:             uint64(s.size),
 		IsAvailable:      true,
-		SourceVolumeUUID: "",
+		SourceVolumeUUID: s.sourceVolumeID,
 	}
 
 	return &models.GetSnapshotResponse{
@@ -178,8 +193,8 @@ func (c *Client) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRequest) 
 	}
 
 	var mapErr error
-	out := lo.Map[*Snapshot, *models.Snapshot](ss, func(v *Snapshot, _ int) *models.Snapshot {
-		sectorSize, err := uintToUint32Checked(v.sectorSize)
+	out := lo.Map[*Snapshot, *models.Snapshot](ss, func(s *Snapshot, _ int) *models.Snapshot {
+		sectorSize, err := uintToUint32Checked(s.sectorSize)
 		if err != nil {
 			mapErr = multierr.Append(mapErr, err)
 
@@ -187,11 +202,11 @@ func (c *Client) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRequest) 
 		}
 
 		return &models.Snapshot{
-			UUID:             v.id,
-			Size:             uint64(v.size),
+			UUID:             s.id,
+			Size:             uint64(s.size),
 			SectorSize:       sectorSize,
 			IsAvailable:      true,
-			SourceVolumeUUID: "",
+			SourceVolumeUUID: s.sourceVolumeID,
 		}
 	})
 
@@ -237,48 +252,6 @@ func (c *Client) DeleteSnapshot(_ context.Context, req *models.DeleteSnapshotReq
 	}
 
 	return &models.DeleteSnapshotResponse{}, nil
-}
-
-func (c *Client) CloneVolume(_ context.Context, req *models.CloneVolumeRequest) (*models.CloneVolumeResponse, error) {
-	srcSnapshotID := req.SrcSnapshotUUID
-
-	srcSnapshot, err := c.backend.getSnapshot(c.apiKey, srcSnapshotID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get snapshot: %w", err)
-	}
-
-	v, err := c.backend.cloneVolume(c.apiKey, srcSnapshot.sourceVolumeID, req.DstVolumeUUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clone volume: %w", err)
-	}
-
-	return &models.CloneVolumeResponse{
-		OperationID: v.id,
-	}, nil
-}
-
-func (c *Client) CloneSnapshot(_ context.Context, req *models.CloneSnapshotRequest,
-) (*models.CloneSnapshotResponse, error) {
-	s, err := c.backend.cloneSnapshot(c.apiKey, req.SrcSnaphotUUID, req.DstSnapshotUUID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to clone snapshot: %w", err)
-	}
-
-	return &models.CloneSnapshotResponse{
-		OperationID: s.id,
-	}, nil
-}
-
-func (c *Client) GetCloneStatus(_ context.Context, _ *models.GetCloneStatusRequest,
-) (*models.GetCloneStatusResponse, error) {
-	err := c.backend.getCloneStatus(c.apiKey)
-	if err != nil {
-		return nil, fmt.Errorf("failed to get clone status: %w", err)
-	}
-
-	return &models.GetCloneStatusResponse{
-		OperationID: "",
-	}, nil
 }
 
 var errUint32OutOfRange = errors.New("uint32 out of range")

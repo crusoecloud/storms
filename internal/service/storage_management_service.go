@@ -2,49 +2,55 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"github.com/rs/zerolog/log"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
 
 	storms "gitlab.com/crusoeenergy/island/storage/storms/api/gen/go/storms/v1"
+	"gitlab.com/crusoeenergy/island/storage/storms/internal/service/resource"
+)
+
+var (
+	errUnexpected          = errors.New("an unexpected error occurred")
+	errUnspecifiedResource = errors.New("unspecified resource")
 )
 
 func (s *Service) GetVolume(ctx context.Context, req *storms.GetVolumeRequest,
 ) (*storms.GetVolumeResponse, error) {
 	volID := req.GetUuid()
-	log.Info().Msgf("Mapping volume [id=%s] to client", volID)
-	clientID, c, err := s.ResourceManager.getClientForResource(volID)
+
+	clusterID, c, err := s.getClientForResource(volID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	log.Info().Msgf("GetVolume request [id=%s] routed to client [id=%s]", volID, clientID)
-	resp, err := s.ClientTranslator.GetVolume(ctx, c, req)
+	resp, err := s.clientTranslator.GetVolume(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volume in translation layer: %w", err)
 	}
+
+	log.Info().Str("resource_id", volID).Str("cluster_id", clusterID).Msgf("fetched volume")
 
 	return resp, nil
 }
 
 func (s *Service) GetVolumes(ctx context.Context, req *storms.GetVolumesRequest) (*storms.GetVolumesResponse, error) {
 	out := []*storms.Volume{}
-
-	log.Info().Msgf("GetVolumes request routed to all clients")
-	clientIDs := s.ResourceManager.getAllClientIDs()
-	for _, clientID := range clientIDs {
-		c, err := s.ResourceManager.getClient(clientID)
+	clusterIDs := s.clusterManager.AllIDs()
+	for _, clusterID := range clusterIDs {
+		c, err := s.clusterManager.Get(clusterID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get client: %w", err)
 		}
 
-		resp, err := s.ClientTranslator.GetVolumes(ctx, c, req)
+		resp, err := s.clientTranslator.GetVolumes(ctx, c, req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get volumes in translation layer: %w", err)
 		}
 		out = append(out, resp.Volumes...)
+
+		log.Info().Str("cluster_id", clusterID).Msgf("fetched volumes")
 	}
 
 	return &storms.GetVolumesResponse{
@@ -54,26 +60,34 @@ func (s *Service) GetVolumes(ctx context.Context, req *storms.GetVolumesRequest)
 
 func (s *Service) CreateVolume(ctx context.Context, req *storms.CreateVolumeRequest,
 ) (*storms.CreateVolumeResponse, error) {
-	clientID, c, err := s.ResourceManager.allocateClient()
+	var clusterID string
+	var err error
+	switch source := req.GetSource().(type) {
+	case *storms.CreateVolumeRequest_FromSnapshot:
+		clusterID, err = s.resourceManager.GetResourceCluster(source.FromSnapshot.SnapshotUuid)
+	case *storms.CreateVolumeRequest_FromNew:
+		clusterID, err = s.allocator.SelectClusterForNewResource()
+	}
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get cluster for resource: %w", err)
 	}
 
-	log.Info().Msgf("create volume grpc endpoint req: %v", req)
+	c, err := s.clusterManager.Get(clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client for cluster: %w", err)
+	}
 
-	// TODO - we may want to block creation of volume with the same UUID
-
-	log.Info().Msgf("CreateVolume request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.CreateVolume(ctx, c, req)
+	resp, err := s.clientTranslator.CreateVolume(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume in translation layer: %w", err)
 	}
-
-	log.Info().Msgf("Resource added to StorMS [id=%s, clientID=%s]", req.Volume.Uuid, clientID)
-	err = s.ResourceManager.addResource(req.Volume.Uuid, clientID)
+	r := &resource.Resource{ID: req.Uuid, ClusterID: clusterID, ResourceType: resource.TypeVolume}
+	err = s.resourceManager.Map(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add resource: %w", err)
+		log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to map resource")
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("created volume")
 
 	return resp, nil
 }
@@ -81,17 +95,15 @@ func (s *Service) CreateVolume(ctx context.Context, req *storms.CreateVolumeRequ
 func (s *Service) ResizeVolume(ctx context.Context, req *storms.ResizeVolumeRequest,
 ) (*storms.ResizeVolumeResponse, error) {
 	volID := req.GetUuid()
-	log.Info().Msgf("Mapping volume [id=%s] to client", volID)
-	clientID, c, err := s.ResourceManager.getClientForResource(volID)
+	clusterID, c, err := s.getClientForResource(volID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
-
-	log.Info().Msgf("ResizeVolume request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.ResizeVolume(ctx, c, req)
+	resp, err := s.clientTranslator.ResizeVolume(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resize volume in translation layer: %w", err)
 	}
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("resized volume")
 
 	return resp, nil
 }
@@ -99,23 +111,21 @@ func (s *Service) ResizeVolume(ctx context.Context, req *storms.ResizeVolumeRequ
 func (s *Service) DeleteVolume(ctx context.Context, req *storms.DeleteVolumeRequest,
 ) (*storms.DeleteVolumeResponse, error) {
 	volID := req.GetUuid()
-	log.Info().Msgf("Mapping volume [id=%s] to client", volID)
-	clientID, c, err := s.ResourceManager.getClientForResource(volID)
+	clusterID, c, err := s.getClientForResource(volID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	log.Info().Msgf("DeleteVolume request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.DeleteVolume(ctx, c, req)
+	resp, err := s.clientTranslator.DeleteVolume(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete volume in translation layer: %w", err)
 	}
-
-	log.Info().Msgf("Resource removed from StorMS [id=%s]", req.GetUuid())
-	err = s.ResourceManager.removeResource(req.GetUuid())
+	err = s.resourceManager.Unmap(req.GetUuid())
 	if err != nil {
-		return nil, fmt.Errorf("failed to remove resource: %w", err)
+		log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to unmap resource")
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("deleted volume")
 
 	return resp, nil
 }
@@ -123,17 +133,17 @@ func (s *Service) DeleteVolume(ctx context.Context, req *storms.DeleteVolumeRequ
 func (s *Service) AttachVolume(ctx context.Context, req *storms.AttachVolumeRequest,
 ) (*storms.AttachVolumeResponse, error) {
 	volID := req.GetUuid()
-	log.Info().Msgf("Mapping volume [id=%s] to client", volID)
-	clientID, c, err := s.ResourceManager.getClientForResource(volID)
+	clusterID, c, err := s.getClientForResource(volID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	log.Info().Msgf("AttachVolume request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.AttachVolume(ctx, c, req)
+	resp, err := s.clientTranslator.AttachVolume(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to attach volume in translation layer: %w", err)
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("attached volume")
 
 	return resp, nil
 }
@@ -141,17 +151,17 @@ func (s *Service) AttachVolume(ctx context.Context, req *storms.AttachVolumeRequ
 func (s *Service) DetachVolume(ctx context.Context, req *storms.DetachVolumeRequest,
 ) (*storms.DetachVolumeResponse, error) {
 	volID := req.GetUuid()
-	log.Info().Msgf("Mapping volume [id=%s] to client", volID)
-	clientID, c, err := s.ResourceManager.getClientForResource(volID)
+	clusterID, c, err := s.getClientForResource(volID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	log.Info().Msgf("DetachVolume request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.DetachVolume(ctx, c, req)
+	resp, err := s.clientTranslator.DetachVolume(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detach volume in translation layer: %w", err)
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("detached volume")
 
 	return resp, nil
 }
@@ -159,17 +169,17 @@ func (s *Service) DetachVolume(ctx context.Context, req *storms.DetachVolumeRequ
 func (s *Service) GetSnapshot(ctx context.Context, req *storms.GetSnapshotRequest,
 ) (*storms.GetSnapshotResponse, error) {
 	snapshotID := req.GetUuid()
-	log.Info().Msgf("Mapping volume [id=%s] to client", snapshotID)
-	clientID, c, err := s.ResourceManager.getClientForResource(snapshotID)
+	clusterID, c, err := s.getClientForResource(snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	log.Info().Msgf("GetSnapshot request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.GetSnapshot(ctx, c, req)
+	resp, err := s.clientTranslator.GetSnapshot(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get snapshot translation layer: %w", err)
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("fetched snapshot")
 
 	return resp, nil
 }
@@ -178,19 +188,20 @@ func (s *Service) GetSnapshots(ctx context.Context, req *storms.GetSnapshotsRequ
 ) (*storms.GetSnapshotsResponse, error) {
 	out := []*storms.Snapshot{}
 
-	log.Info().Msgf("GetVolumes request routed to all clients")
-	clientIDs := s.ResourceManager.getAllClientIDs()
-	for _, clientID := range clientIDs {
-		c, err := s.ResourceManager.getClient(clientID)
+	clusterIDs := s.clusterManager.AllIDs()
+	for _, clusterID := range clusterIDs {
+		c, err := s.clusterManager.Get(clusterID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get client: %w", err)
 		}
 
-		snapshots, err := s.ClientTranslator.GetSnapshots(ctx, c, req)
+		snapshots, err := s.clientTranslator.GetSnapshots(ctx, c, req)
 		if err != nil {
-			return nil, fmt.Errorf("faield to get snapshots in translation layer: %w", err)
+			return nil, fmt.Errorf("faild to get snapshots in translation layer: %w", err)
 		}
 		out = append(out, snapshots.Snapshots...)
+
+		log.Info().Str("cluster_id", clusterID).Msgf("fetched snapshots")
 	}
 
 	return &storms.GetSnapshotsResponse{
@@ -200,22 +211,26 @@ func (s *Service) GetSnapshots(ctx context.Context, req *storms.GetSnapshotsRequ
 
 func (s *Service) CreateSnapshot(ctx context.Context, req *storms.CreateSnapshotRequest,
 ) (*storms.CreateSnapshotResponse, error) {
-	clientID, c, err := s.ResourceManager.allocateClient()
+	clusterID, err := s.resourceManager.GetResourceCluster(req.GetSrcVolumeUuid())
 	if err != nil {
-		return nil, fmt.Errorf("failed to get client: %w", err)
+		return nil, fmt.Errorf("failed to get cluster for resource: %w", err)
+	}
+	c, err := s.clusterManager.Get(clusterID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get client for cluster: %w", err)
 	}
 
-	log.Info().Msgf("CreateSnapshot request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.CreateSnapshot(ctx, c, req)
+	resp, err := s.clientTranslator.CreateSnapshot(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot in translation layer: %w", err)
 	}
-
-	log.Info().Msgf("Resource added to StorMS [id=%s, clientID=%s]", req.Snapshot.Uuid, clientID)
-	err = s.ResourceManager.addResource(req.Snapshot.Uuid, clientID)
+	r := &resource.Resource{ID: req.Uuid, ClusterID: clusterID, ResourceType: resource.TypeSnapshot}
+	err = s.resourceManager.Map(r)
 	if err != nil {
-		return nil, fmt.Errorf("failed to add resource: %w", err)
+		log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to map resource")
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("created snapshot")
 
 	return resp, nil
 }
@@ -223,38 +238,91 @@ func (s *Service) CreateSnapshot(ctx context.Context, req *storms.CreateSnapshot
 func (s *Service) DeleteSnapshot(ctx context.Context, req *storms.DeleteSnapshotRequest,
 ) (*storms.DeleteSnapshotResponse, error) {
 	snapshotID := req.GetUuid()
-
-	log.Info().Msgf("Mapping volume [id=%s] to client", snapshotID)
-	clientID, c, err := s.ResourceManager.getClientForResource(snapshotID)
+	log.Info().Msgf("Mapping snapshot [id=%s] to client", snapshotID)
+	clusterID, c, err := s.getClientForResource(snapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	log.Info().Msgf("DeleteSnapshot request routed to client [id=%s]", clientID)
-	resp, err := s.ClientTranslator.DeleteSnapshot(ctx, c, req)
+	resp, err := s.clientTranslator.DeleteSnapshot(ctx, c, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete volume in translation layer: %w", err)
 	}
-
-	log.Info().Msgf("Resource removed from StorMS [id=%s]", req.GetUuid())
-	err = s.ResourceManager.removeResource(req.GetUuid())
+	err = s.resourceManager.Unmap(req.GetUuid())
 	if err != nil {
-		return nil, fmt.Errorf("failed to remove snapshot: %w", err)
+		log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to unmap resource")
 	}
+
+	log.Info().Str("cluster_id", clusterID).Str("resource_id", req.Uuid).Msg("deleted snapshot")
 
 	return resp, nil
 }
 
-func (s *Service) CloneVolume(_ context.Context, _ *storms.CloneVolumeRequest) (*storms.CloneVolumeResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CloneVolume not implemented")
+func (s *Service) SyncResource(ctx context.Context, req *storms.SyncResourceRequest,
+) (*storms.SyncResourceResponse, error) {
+	r := &resource.Resource{ID: req.Uuid, ClusterID: req.ClusterUuid}
+	if req.ResourceType == storms.ResourceType_RESOURCE_TYPE_SNAPSHOT {
+		r.ResourceType = resource.TypeSnapshot
+	} else if req.ResourceType == storms.ResourceType_RESOURCE_TYPE_VOLUME {
+		r.ResourceType = resource.TypeVolume
+	}
+	err := s.resourceManager.Map(r)
+	if err != nil {
+		log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to map resource")
+	}
+	rm, err := s.syncResourceHelper(ctx, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to sync resource: %w", err)
+	}
+
+	if rm {
+		err := s.resourceManager.Unmap(req.Uuid)
+		if err != nil {
+			log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to unmap resource")
+		}
+	}
+
+	return &storms.SyncResourceResponse{}, nil
 }
 
-func (s *Service) CloneSnapshot(_ context.Context, _ *storms.CloneSnapshotRequest,
-) (*storms.CloneSnapshotResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method CloneSnapshot not implemented")
+func (s *Service) syncResourceHelper(ctx context.Context, req *storms.SyncResourceRequest,
+) (bool, error) {
+	switch req.ResourceType {
+	case storms.ResourceType_RESOURCE_TYPE_VOLUME:
+		getVolReq := &storms.GetVolumeRequest{
+			Uuid: req.Uuid,
+		}
+		getVolResp, err := s.GetVolume(ctx, getVolReq)
+		if err != nil {
+			return true, fmt.Errorf("failed to get volume: %w", err)
+		}
+		if getVolResp.Volume != nil {
+			return false, nil
+		}
+
+	case storms.ResourceType_RESOURCE_TYPE_SNAPSHOT:
+		getSnapshotReq := &storms.GetSnapshotRequest{
+			Uuid: req.Uuid,
+		}
+		getSnapshotResp, err := s.GetSnapshot(ctx, getSnapshotReq)
+		if err != nil {
+			return true, fmt.Errorf("failed to get volume: %w", err)
+		}
+		if getSnapshotResp.Snapshot != nil {
+			return false, nil
+		}
+
+	case storms.ResourceType_RESOURCE_TYPE_UNSPECIFIED:
+		return true, errUnspecifiedResource
+	}
+
+	return true, errUnexpected
 }
 
-func (s *Service) GetCloneStatus(_ context.Context, _ *storms.GetCloneStatusRequest,
-) (*storms.GetCloneStatusResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetCloneStatus not implemented")
+func (s *Service) SyncAllResources(_ context.Context, _ *storms.SyncAllResourcesRequest,
+) (*storms.SyncAllResourcesResponse, error) {
+	s.syncResourceManager()
+	log.Info().Msgf("Syncing metadata of clusters")
+
+	return &storms.SyncAllResourcesResponse{}, nil
 }

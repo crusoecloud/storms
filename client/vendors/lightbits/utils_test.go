@@ -1,7 +1,6 @@
 package lightbits
 
 import (
-	"math"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -230,56 +229,5 @@ func Test_snapshotStateToIsAvail(t *testing.T) {
 			actual := snapshotStateToIsAvail(tt.input)
 			require.Equal(t, actual, tt.expected)
 		})
-	}
-}
-
-func Test_intToUint32Checked(t *testing.T) {
-	tests := []struct {
-		name        string
-		input       int
-		expected    uint32
-		expectedErr bool
-	}{
-		{
-			name:        "zero value",
-			input:       0,
-			expected:    0,
-			expectedErr: false,
-		},
-		{
-			name:        "positive within range",
-			input:       123,
-			expected:    123,
-			expectedErr: false,
-		},
-		{
-			name:        "max uint32",
-			input:       int(math.MaxUint32),
-			expected:    math.MaxUint32,
-			expectedErr: false,
-		},
-		{
-			name:        "negative value",
-			input:       -1,
-			expected:    0,
-			expectedErr: true,
-		},
-		{
-			name:        "overflow beyond uint32",
-			input:       int(math.MaxUint32) + 1,
-			expected:    0,
-			expectedErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		actual, err := intToUint32Checked(tt.input)
-		if tt.expectedErr {
-			require.Error(t, err)
-		} else {
-			require.NoError(t, err)
-		}
-		require.Equal(t, actual, tt.expected)
-
 	}
 }

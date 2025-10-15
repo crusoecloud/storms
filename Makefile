@@ -8,7 +8,6 @@ PROTO_DIR=api/proto
 GEN_DIR=api/gen/go
 PROTOC ?= protoc
 
-
 # Find all .proto files under PROTO_DIR
 PROTO_FILES := $(shell find $(PROTO_DIR) -name '*.proto')
 
@@ -25,7 +24,10 @@ GOCOVER_VERSION = latest
 .PHONY: build
 build: ## Builds the executable and places it in the build dir
 	@go build -o ${BUILDDIR}/${NAME} ${PKG}
-	@GOOS=linux GOARCH=amd64 go build -o ${BUILDDIR}/${NAME}-x86_64 ${PKG}
+
+.PHONY: cross
+cross: ## Builds the cross compiled executable for use in other environments
+	@GOOS=linux GOARCH=amd64 go build -o ${BUILDDIR}/${NAME} ${PKG}
 
 .PHONY: run
 run:
@@ -59,13 +61,6 @@ test:
 	@echo "==> $@"
 	@go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
 	@gotestsum ./... -- -tags "$(BUILDTAGS)" -cover -race -v
-
-.PHONY: test-coverage
-test-coverage:
-	@echo "==> $@"
-	@go install gotest.tools/gotestsum@${GOTESTSUM_VERSION}
-	@gotestsum ./... -- -tags "$(BUILDTAGS)" -cover -coverprofile=coverage.out -race -v
-	@go tool cover -func=coverage.out
 
 .PHONY: test-ci
 test-ci: ## Runs the go tests with additional options for a CI environment
