@@ -2,13 +2,17 @@ KNOWN ISSUES:
 - 
 
 TODO:
-- create Dockerfile and get build_and_push working
-- make resource Manager an interface so we can swap it out with non-memory solution
 - Lightbits client implementation uses client + adapter, but we can actually just combine the two of them. we are separating them right now because we are reusing code from the old LB client implementation
-- create cli interface for crud endpoints
-    - create CLI command that will dump the internal mappings of resources to client. essentially, display a comprehensive view of StorMS
 - Pinning service definition versions
+- Consider enforcing usage of UUID instead of string. this will ultimately be more limiting but can offer benefits with checking args
+- Design an o11y cli subcommand that will show useful cluster/resource information
+    - create CLI command that will dump the internal mappings of resources to client. essentially, display a comprehensive view of StorMS
+- need to configure a HV host to be able to talk to multiple lightbits backends 
+    - for mvp, we can do this manually, but we need a solution at least 
+    - later, we can have it talk to multiple vendors
+- make storms respond gracefully to if any downstream clients are down. we dont want a broken backend to crash storms 
+- evaluate the difference between `storms sync --all` and `storms app reload`
+- remove reference from the internal tools repo to support open-source
 
 THOUGHTS: 
-- we want users to create StorMS to behave close to end user experience. that is, they will provide resource NAMES, since this is the customizable field. 
-- should we strictly enforce having the patter than storms resource UUID is the vendor resource name?
+- should we strictly enforce having the pattern than storms resource UUID is the vendor resource name?

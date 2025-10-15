@@ -76,3 +76,15 @@ enum OperationState {
     // Operation has not yet completed.
     OPERATION_STATE_IN_PROGRESS = 3;
 }
+
+// Resource types.
+enum ResourceType {
+    // Default value.
+    RESOURCE_TYPE_UNSPECIFIED = 0;
+
+    // Volume.
+    RESOURCE_TYPE_VOLUME = 1;
+
+    // Snapshot.
+    RESOURCE_TYPE_SNAPSHOT = 2;
+}

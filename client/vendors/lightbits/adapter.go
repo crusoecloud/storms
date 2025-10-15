@@ -4,38 +4,33 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strconv"
 
 	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
-	"gitlab.com/crusoeenergy/island/storage/storms/client/vendors/lightbits/dms"
 )
 
-var errMustHaveOneACL = errors.New("must have exactly 1 ACL")
+var (
+	errMustHaveOneACL        = errors.New("must have exactly 1 ACL")
+	errUnsupportVolumeSource = errors.New("unsupport volume source")
+)
 
-// The Lightbits adapter is a wrapper around the Lightbits client that translate generic federation-level
+// The Lightbits adapter is a wrapper around the Lightbits client that translates generic federation-level
 // requests to Lightbits-specific API requests.
 type ClientAdapter struct {
-	client    *Client
-	dmsClient *dms.Client
-	// DMS with loadbalancer -> x2 cients
+	client *Client
 }
 
-func NewClientAdapter(cfg ClientConfig) (*ClientAdapter, error) {
+func NewClientAdapter(cfg *ClientConfig) (*ClientAdapter, error) {
 	c, err := NewClientV2(cfg)
 	if err != nil {
-		return nil, fmt.Errorf("faied to create new lightbits client: %w", err)
-	}
-
-	dmsClient, err := dms.NewClient()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create new lightbits dms client: %w", err)
+		return nil, fmt.Errorf("failed to create new lightbits client: %w", err)
 	}
 
 	return &ClientAdapter{
-		client:    c,
-		dmsClient: dmsClient,
+		client: c,
 	}, nil
 }
 
@@ -53,7 +48,7 @@ func (a *ClientAdapter) GetVolume(_ context.Context, req *models.GetVolumeReques
 
 	sectorSz, err := intToUint32Checked(lbResp.SectorSize)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse sector size: %w", err)
+		return nil, fmt.Errorf("failed to cast sector size: %w", err)
 	}
 
 	return &models.GetVolumeResponse{
@@ -108,22 +103,94 @@ func (a *ClientAdapter) GetVolumes(_ context.Context, _ *models.GetVolumesReques
 func (a *ClientAdapter) CreateVolume(_ context.Context, req *models.CreateVolumeRequest,
 ) (*models.CreateVolumeResponse, error) {
 	// Required args: name, acl, repica count, size
-	v := &Volume{
-		Name: req.UUID,
-		ACL: ACL{
-			Values: req.Acls,
-		},
-		ReplicaCount: a.client.replicationFactor,
-		Size:         bytesToGiBString(req.Size),
+	var v *Volume
+	var err error
+
+	switch source := req.Source.(type) {
+	case *models.NewVolumeSpec:
+		v, err = createEmptyVolHelper(req.UUID, a.client.replicationFactor, source.Size, source.SectorSize)
+		if err != nil {
+			return nil, fmt.Errorf("failed to create request to create new empty volume: %w", err)
+		}
+
+	case *models.SnapshotSource:
+		lbSnapshot, err1 := a.client.GetSnapshot(source.SnapshotUUID)
+		if err1 != nil {
+			return nil, fmt.Errorf("failed to get snapshot: %w", err1)
+		}
+		v = createVolFromSnapshotHelper(req.UUID, lbSnapshot)
+
+	default:
+
+		return nil, errUnsupportVolumeSource
 	}
 
-	_, err := a.client.CreateVolume(v)
+	lbVol, err := a.client.CreateVolume(v)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume: %w", err)
 	}
 
+	genericVol, err := translateLBVolToGenericVolHelper(lbVol)
+	if err != nil {
+		return nil, fmt.Errorf("failed to translate lightbits volume to generic volume: %w", err)
+	}
+
 	return &models.CreateVolumeResponse{
-		// Empty; ACK
+		Volume: genericVol,
+	}, nil
+}
+
+func createEmptyVolHelper(id string, rf int, size uint64, sectorSize uint32) (*Volume, error) {
+	sectorSz, err := uint32ToIntChecked(sectorSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse sector size: %w", err)
+	}
+	v := &Volume{
+		Name:         id,
+		ReplicaCount: rf,
+		Size:         bytesToGiBString(size),
+		SectorSize:   sectorSz,
+		ACL: ACL{
+			Values: []string{ACLNone},
+		},
+	}
+
+	return v, nil
+}
+
+func createVolFromSnapshotHelper(id string, snapshot *Snapshot) *Volume {
+	v := &Volume{
+		Name:         id,
+		ReplicaCount: snapshot.ReplicaCount,
+		Size:         snapshot.Size,
+		SectorSize:   snapshot.SectorSize,
+		ACL: ACL{
+			Values: []string{ACLNone},
+		},
+		SourceSnapshotUUID: snapshot.UUID.String(),
+	}
+
+	return v
+}
+
+func translateLBVolToGenericVolHelper(vol *Volume) (*models.Volume, error) {
+	sizeUint64, err := strconv.Atoi(vol.Size)
+	if err != nil {
+		return nil, fmt.Errorf("failed to convert size string to bytes: %w", err)
+	}
+
+	sectorSize, err := intToUint32Checked(vol.SectorSize)
+	if err != nil {
+		return nil, fmt.Errorf("failed to cast sector size: %w", err)
+	}
+
+	return &models.Volume{
+		UUID:               vol.Name,
+		Size:               uint64(sizeUint64),
+		SectorSize:         sectorSize,
+		Acls:               vol.ACL.Values,
+		IsAvailable:        volumeStateToIsAvail(vol.State),
+		SourceSnapshotUUID: vol.SourceSnapshotName,
 	}, nil
 }
 
@@ -177,7 +244,7 @@ func (a *ClientAdapter) AttachVolume(_ context.Context, req *models.AttachVolume
 	acl := constructACLSet(getVolResp.ACL.Values, addNodes, removeNodes)
 	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{
 		ACL: &ACL{
-			Values: acl,	
+			Values: acl,
 		},
 	})
 	if err != nil {
@@ -243,7 +310,7 @@ func (a *ClientAdapter) GetSnapshot(_ context.Context, req *models.GetSnapshotRe
 			Size:             sz,
 			SectorSize:       sectorSz,
 			IsAvailable:      snapshotStateToIsAvail(lbResp.State),
-			SourceVolumeUUID: lbResp.SourceVolumeName, // TODO - fix
+			SourceVolumeUUID: lbResp.SourceVolumeName,
 		},
 	}
 
@@ -277,7 +344,7 @@ func (a *ClientAdapter) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRe
 			Size:             sz,
 			SectorSize:       sectorSz,
 			IsAvailable:      snapshotStateToIsAvail(s.State),
-			SourceVolumeUUID: s.SourceVolumeName, // TODO - fix
+			SourceVolumeUUID: s.SourceVolumeName,
 		}
 	})
 
@@ -292,7 +359,7 @@ func (a *ClientAdapter) CreateSnapshot(_ context.Context, req *models.CreateSnap
 ) (*models.CreateSnapshotResponse, error) {
 	lbReq := &CreateSnapshotRequest{
 		Name:             req.UUID,
-		SourceVolumeName: req.SourceVolumeUUID, // TODO - fix
+		SourceVolumeName: req.SourceVolumeUUID,
 		ProjectName:      a.client.projectName,
 	}
 
@@ -316,41 +383,5 @@ func (a *ClientAdapter) DeleteSnapshot(_ context.Context, req *models.DeleteSnap
 
 	return &models.DeleteSnapshotResponse{
 		// Empty; ACK
-	}, nil
-}
-
-func (a *ClientAdapter) CloneVolume(_ context.Context, _ *models.CloneVolumeRequest,
-) (*models.CloneVolumeResponse, error) {
-	err := a.dmsClient.CloneResource()
-	if err != nil {
-		return nil, fmt.Errorf("failed to resource: %w", err)
-	}
-
-	return &models.CloneVolumeResponse{
-		// TODO - populate response fields
-	}, nil
-}
-
-func (a *ClientAdapter) CloneSnapshot(_ context.Context, _ *models.CloneSnapshotRequest,
-) (*models.CloneSnapshotResponse, error) {
-	err := a.dmsClient.CloneResource()
-	if err != nil {
-		return nil, fmt.Errorf("failed to resource: %w", err)
-	}
-
-	return &models.CloneSnapshotResponse{
-		// TODO - populate response fields
-	}, nil
-}
-
-func (a *ClientAdapter) GetCloneStatus(_ context.Context, _ *models.GetCloneStatusRequest,
-) (*models.GetCloneStatusResponse, error) {
-	err := a.dmsClient.GetCloneStatus()
-	if err != nil {
-		return nil, fmt.Errorf("failed to get clone status: %w", err)
-	}
-
-	return &models.GetCloneStatusResponse{
-		// TODO - populate response fields
 	}, nil
 }

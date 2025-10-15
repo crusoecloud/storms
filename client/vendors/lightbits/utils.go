@@ -9,7 +9,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-var errIntOutOfRange = errors.New("integer out of range")
+var (
+	errIntOutOfRange    = errors.New("integer out of range")
+	errUint32OutOfRange = errors.New("unsigned integer out of range")
+)
 
 // BytesToGiBString converts a uint64 number of bytes to a string in the format "XGiB".
 func bytesToGiBString(bytes uint64) string {
@@ -34,14 +37,6 @@ func volumeStateToIsAvail(state VolumeState) bool {
 
 func snapshotStateToIsAvail(state SnapshotState) bool {
 	return state == SnapshotStateAvailable
-}
-
-func intToUint32Checked(i int) (uint32, error) {
-	if i < 0 || i > math.MaxUint32 {
-		return 0, errIntOutOfRange
-	}
-
-	return uint32(i), nil
 }
 
 func constructACLSet(volumeACL, addNodes, removeNodes []string) []string {
@@ -69,6 +64,22 @@ func constructACLSet(volumeACL, addNodes, removeNodes []string) []string {
 		acl = append(acl, nqn)
 	}
 	log.Info().Msgf("Updated LB ACL result: %s", acl)
-	
+
 	return acl
+}
+
+func intToUint32Checked(i int) (uint32, error) {
+	if i < 0 {
+		return 0, errIntOutOfRange
+	}
+
+	return uint32(i), nil
+}
+
+func uint32ToIntChecked(u uint32) (int, error) {
+	if u > math.MaxInt32 {
+		return 0, errUint32OutOfRange
+	}
+
+	return int(u), nil
 }

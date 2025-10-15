@@ -14,7 +14,7 @@ type Client struct {
 	*/
 }
 
-func NewClient(cfg ClientConfig) (*Client, error) {
+func NewClient(cfg *ClientConfig) (*Client, error) {
 	return &Client{
 		// TODO - add stuff here
 	}, nil
@@ -81,24 +81,6 @@ func (c *Client) CreateSnapshot(ctx context.Context, req *models.CreateSnapshotR
 }
 
 func (c *Client) DeleteSnapshot(ctx context.Context, req *models.DeleteSnapshotRequest) (*models.DeleteSnapshotResponse, error) {
-	// TODO: make API call to cluster
-
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (c *Client) CloneVolume(ctx context.Context, req *models.CloneVolumeRequest) (*models.CloneVolumeResponse, error) {
-	// TODO: make API call to cluster
-
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (c *Client) CloneSnapshot(ctx context.Context, req *models.CloneSnapshotRequest) (*models.CloneSnapshotResponse, error) {
-	// TODO: make API call to cluster
-
-	return nil, fmt.Errorf("not implemented")
-}
-
-func (c *Client) GetCloneStatus(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error) {
 	// TODO: make API call to cluster
 
 	return nil, fmt.Errorf("not implemented")

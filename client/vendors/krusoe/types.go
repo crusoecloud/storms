@@ -6,6 +6,7 @@ type Volume struct {
 	size       uint
 	sectorSize uint
 	acls       []string
+	srcSnapshotID string
 }
 
 type Snapshot struct {

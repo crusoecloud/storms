@@ -1,10 +1,11 @@
 clusters:
-  - vendor: "lightbits"
-    vendor_config:
-      auth_token: "this_is_an_auth_token"
-      addr_strs: ["1.1.1.1", "2.2.2.2"]
-      project_name: "project-name"
-  - vendor: "crusoe"
+  - vendor: "krusoe"
     vendor_config: 
-      endpoints: ["1.1.1.1"]
-      password: top_secret_password
+      api_key: krusoe_api_key
+  - vendor: "lightbits"
+    cluster_id: eee4019a-3d0f-4fea-8142-a5a8d0a3c20a
+    vendor_config:
+      auth_token: this_is_an_auth_token
+      addr_strs: ['1.1.1.1:1', '2.2.2.2:2']
+      project_name: "unit-test"
+      replication_factor: 3

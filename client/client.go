@@ -31,14 +31,9 @@ type Client interface {
 	GetSnapshots(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error)
 	CreateSnapshot(ctx context.Context, req *models.CreateSnapshotRequest) (*models.CreateSnapshotResponse, error)
 	DeleteSnapshot(ctx context.Context, req *models.DeleteSnapshotRequest) (*models.DeleteSnapshotResponse, error)
-
-	// Cloning operations
-	CloneVolume(ctx context.Context, req *models.CloneVolumeRequest) (*models.CloneVolumeResponse, error)
-	CloneSnapshot(ctx context.Context, req *models.CloneSnapshotRequest) (*models.CloneSnapshotResponse, error)
-	GetCloneStatus(ctx context.Context, req *models.GetCloneStatusRequest) (*models.GetCloneStatusResponse, error)
 }
 
-//nolint:ireturn,cyclop,nolintlint // need to return interface to support generic type; multipliex function
+//nolint:cyclop // multipliex function
 func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 	cfgBytes, err := yaml.Marshal(cfg)
 	if err != nil {
@@ -48,12 +43,13 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 	switch vendor {
 	case "lightbits":
 		var cfg lightbits.ClientConfig
-		if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal lightbits cluster config: %w", err)
+		if err := lightbits.ParseConfig(cfgBytes, &cfg); err != nil {
+			return nil, fmt.Errorf("failed to parse Krusoe config: %w", err)
 		}
+
 		log.Info().Msgf("Creating new Lightbits client: %#v", cfg)
 
-		clientAdapter, err := lightbits.NewClientAdapter(cfg)
+		clientAdapter, err := lightbits.NewClientAdapter(&cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new lightbits client adapter: %w", err)
 		}
@@ -67,7 +63,7 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 		}
 		log.Info().Msgf("Creating new PureStorage client: %#v", cfg)
 
-		client, err := purestorage.NewClient(cfg)
+		client, err := purestorage.NewClient(&cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new purestorage client adapter: %w", err)
 		}
@@ -75,7 +71,6 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 		return client, nil
 
 	case "krusoe":
-		// var cfg kurose
 		var cfg krusoe.Config
 		if err := krusoe.ParseConfig(cfgBytes, &cfg); err != nil {
 			return nil, fmt.Errorf("failed to parse Krusoe config: %w", err)

@@ -5,6 +5,14 @@ import (
 
 	"github.com/rs/zerolog/log"
 	"github.com/spf13/cobra"
+
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/app"
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/snapshot"
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/snapshots"
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/sync"
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/utils"
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/volume"
+	"gitlab.com/crusoeenergy/island/storage/storms/cmd/volumes"
 )
 
 func Execute() {
@@ -15,6 +23,11 @@ func Execute() {
 }
 
 func NewRootCmd() *cobra.Command {
+	cmdFactory := utils.NewCmdFactory(
+		utils.DefaultAdminProvider,
+		utils.DefaultStorMSProvider,
+	)
+
 	rootCmd := &cobra.Command{
 		Use:   "storms",
 		Short: "Storage Management Service",
@@ -22,7 +35,12 @@ func NewRootCmd() *cobra.Command {
 	}
 
 	rootCmd.AddCommand(
-		newServeCmd(),
+		app.NewAppCmd(cmdFactory),
+		volume.NewVolumeCmd(cmdFactory),
+		volumes.NewVolumesCmd(cmdFactory),
+		snapshot.NewSnapshotCmd(cmdFactory),
+		snapshots.NewSnapshotsCmd(cmdFactory),
+		sync.NewSyncCmd(cmdFactory),
 	)
 
 	return rootCmd

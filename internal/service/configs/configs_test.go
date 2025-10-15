@@ -18,9 +18,11 @@ func Test_LoadClusterConfig_Valid(t *testing.T) {
 	require.NoError(t, err)
 
 	require.Equal(t, len(cfg.Clusters), 2)
-	require.Equal(t, cfg.Clusters[0].Vendor, "lightbits")
+
 	require.NotNil(t, cfg.Clusters[0].VendorConfig)
 
-	// require.Equal(t, cfg.Clusters[1].Endpoint, "1.1.1.1")
+	require.Equal(t, cfg.Clusters[1].Vendor, "lightbits")
 	require.NotNil(t, cfg.Clusters[1].VendorConfig)
+
+	
 }

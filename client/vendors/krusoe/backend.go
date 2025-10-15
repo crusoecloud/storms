@@ -2,9 +2,9 @@ package krusoe
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/google/uuid"
-	"github.com/rs/zerolog/log"
 	"github.com/samber/lo"
 )
 
@@ -19,7 +19,6 @@ var (
 	errCannotResizeDown = errors.New("cannot resize to a smaller size")
 	errVolDetached      = errors.New("volume is detached")
 	errVolAttached      = errors.New("volume is attached")
-	errUnimplemented    = errors.New("unimplemented")
 )
 
 type backend struct {
@@ -55,18 +54,39 @@ func (b *backend) getVolumes(apiKey string) ([]*Volume, error) {
 	return lo.Values(b.volumes), nil
 }
 
-func (b *backend) createVolume(apiKey, name string, size, sectorSize uint) (*Volume, error) {
+func (b *backend) createNewVolume(apiKey, name string, size, sectorSize uint) (*Volume, error) {
 	if apiKey != secretAPIKey {
 		return nil, errAuth
 	}
-
-	log.Info().Msgf("crusoe backend - create volume: sector size: %d", sectorSize)
 
 	v := &Volume{
 		name:       name,
 		id:         uuid.NewString(),
 		size:       size,
 		sectorSize: sectorSize,
+		acls:       []string{},
+	}
+
+	b.volumes[v.name] = v
+
+	return v, nil
+}
+
+func (b *backend) createVolumeFromSnapshot(apiKey, name, srcSnapshotName string) (*Volume, error) {
+	if apiKey != secretAPIKey {
+		return nil, errAuth
+	}
+
+	s, err := b.getSnapshot(apiKey, srcSnapshotName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get snapshot: %w", err)
+	}
+
+	v := &Volume{
+		name:       name,
+		id:         uuid.NewString(),
+		size:       s.size,
+		sectorSize: s.sectorSize,
 		acls:       []string{},
 	}
 
@@ -127,8 +147,7 @@ func (b *backend) attachVolume(apiKey, id string, acls []string) (*Volume, error
 	return v, nil
 }
 
-//nolint:revive,unparam // will need to update when supporting multi-attach, detach acls
-func (b *backend) detachVolume(apiKey, id string, acls []string) (*Volume, error) {
+func (b *backend) detachVolume(apiKey, id string) (*Volume, error) {
 	if apiKey != secretAPIKey {
 		return nil, errAuth
 	}
@@ -204,54 +223,4 @@ func (b *backend) deleteSnapshot(apiKey, id string) error {
 	delete(b.snapshots, id)
 
 	return nil
-}
-
-func (b *backend) cloneVolume(apiKey, srcVolID, dstVolName string) (*Volume, error) {
-	if apiKey != secretAPIKey {
-		return nil, errAuth
-	}
-
-	srcVol, ok := b.volumes[srcVolID]
-	if !ok {
-		return nil, errResourceNotFound
-	}
-
-	dstVol := &Volume{
-		name:       dstVolName,
-		id:         uuid.NewString(),
-		size:       srcVol.size,
-		sectorSize: srcVol.sectorSize,
-		acls:       srcVol.acls,
-	}
-
-	return dstVol, nil
-}
-
-func (b *backend) cloneSnapshot(apiKey, srcSnapshotID, dstSnapshotsName string) (*Snapshot, error) {
-	if apiKey != secretAPIKey {
-		return nil, errAuth
-	}
-
-	srcSnapshot, ok := b.snapshots[srcSnapshotID]
-	if !ok {
-		return nil, errResourceNotFound
-	}
-
-	dstSnapshot := &Snapshot{
-		name:           dstSnapshotsName,
-		id:             uuid.NewString(),
-		size:           srcSnapshot.size,
-		sectorSize:     srcSnapshot.sectorSize,
-		sourceVolumeID: srcSnapshot.sourceVolumeID,
-	}
-
-	return dstSnapshot, nil
-}
-
-func (b *backend) getCloneStatus(apiKey string) error {
-	if apiKey != secretAPIKey {
-		return errAuth
-	}
-
-	return errUnimplemented
 }

@@ -57,8 +57,7 @@ func Test_Parse(t *testing.T) {
 
 			require.Equal(t, 8888, Get().GrpcPort)
 			require.Equal(t, "127.127.127.127", Get().LocalIP)
-			require.Equal(t, "/some_dir/cluster_file.yaml", Get().ClusterFile)
-			require.Equal(t, "/some_dir/resource_file.yaml", Get().ResourceFile)
+			require.Equal(t, "/some_dir/clusters.yaml", Get().ClusterFile)
 
 			return nil
 		},
