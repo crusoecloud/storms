@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+import "google/protobuf/descriptor.proto";
+
+option go_package = "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/common/field_option;fieldoptionpb";
+
+package common.field_option;
+
+
+// The range 50000-99999 is a range reserved for internal use within individual
+// organizations, so we will start defining field options within this range.
+extend google.protobuf.FieldOptions {
+    // Defines the sensitivity of the field. Sensitive fields will be hidden in logs.
+    string sensitive = 50001;
+}

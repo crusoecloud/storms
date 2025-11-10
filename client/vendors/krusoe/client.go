@@ -39,10 +39,11 @@ func (c *Client) GetVolume(_ context.Context, req *models.GetVolumeRequest) (*mo
 
 	return &models.GetVolumeResponse{
 		Volume: &models.Volume{
-			UUID:               v.id,
+			UUID:               v.name,
+			VendorVolumeID:     v.id,
 			SectorSize:         sectorSize,
 			Size:               uint64(v.size),
-			Acls:               v.acls,
+			ACL:                v.acl,
 			IsAvailable:        true,
 			SourceSnapshotUUID: v.srcSnapshotID,
 		},
@@ -65,10 +66,11 @@ func (c *Client) GetVolumes(_ context.Context, _ *models.GetVolumesRequest) (*mo
 		}
 
 		return &models.Volume{
-			UUID:               v.id,
+			UUID:               v.name,
+			VendorVolumeID:     v.id,
 			SectorSize:         sectorSize,
 			Size:               uint64(v.size),
-			Acls:               v.acls,
+			ACL:                v.acl,
 			IsAvailable:        true,
 			SourceSnapshotUUID: v.srcSnapshotID,
 		}
@@ -110,9 +112,10 @@ func (c *Client) CreateVolume(_ context.Context, req *models.CreateVolumeRequest
 
 	out := &models.Volume{
 		UUID:               v.name,
+		VendorVolumeID:     v.id,
 		Size:               uint64(v.size),
 		SectorSize:         sectorSize,
-		Acls:               v.acls,
+		ACL:                v.acl,
 		IsAvailable:        true,
 		SourceSnapshotUUID: v.srcSnapshotID,
 	}
@@ -144,7 +147,7 @@ func (c *Client) DeleteVolume(_ context.Context, req *models.DeleteVolumeRequest
 
 func (c *Client) AttachVolume(_ context.Context, req *models.AttachVolumeRequest,
 ) (*models.AttachVolumeResponse, error) {
-	_, err := c.backend.attachVolume(c.apiKey, req.UUID, req.Acls)
+	_, err := c.backend.attachVolume(c.apiKey, req.UUID, req.ACL)
 	if err != nil {
 		return nil, fmt.Errorf("failed to attach volume: %w", err)
 	}
@@ -174,7 +177,8 @@ func (c *Client) GetSnapshot(_ context.Context, req *models.GetSnapshotRequest) 
 	}
 
 	out := &models.Snapshot{
-		UUID:             s.id,
+		UUID:             s.name,
+		VendorSnapshotID: s.id,
 		SectorSize:       sectorSize,
 		Size:             uint64(s.size),
 		IsAvailable:      true,
@@ -202,7 +206,8 @@ func (c *Client) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRequest) 
 		}
 
 		return &models.Snapshot{
-			UUID:             s.id,
+			UUID:             s.name,
+			VendorSnapshotID: s.id,
 			Size:             uint64(s.size),
 			SectorSize:       sectorSize,
 			IsAvailable:      true,
@@ -233,6 +238,7 @@ func (c *Client) CreateSnapshot(_ context.Context, req *models.CreateSnapshotReq
 
 	out := &models.Snapshot{
 		UUID:             v.name,
+		VendorSnapshotID: v.id,
 		Size:             uint64(v.size),
 		SectorSize:       sectorSize,
 		IsAvailable:      true,

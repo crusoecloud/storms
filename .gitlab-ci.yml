@@ -39,7 +39,8 @@ build_and_push_storms:
       else
        CI_COMMIT_REF_NAME="$CI_COMMIT_REF_NAME" make cross
       fi
-    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$CI_PROJECT_DIR/dist/storms" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/storms/${CI_COMMIT_REF_NAME}/storms"'
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$CI_PROJECT_DIR/storms/dist/storms" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/storms/${CI_COMMIT_REF_NAME}/storms"'
+    - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$CI_PROJECT_DIR/stormscli/dist/stormscli" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/storms/${CI_COMMIT_REF_NAME}/stormscli"'
   rules:
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "prod"'
       when: never

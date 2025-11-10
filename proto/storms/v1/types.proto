@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+import "validate/validate.proto";
+import "common/field_option/field_option.proto";
+
+// Go code will be generated in this package.
+option go_package = "gitlab.com/crusoeenergy/island/storage/storms/storms/pkg/api/gen/go/storms/v1;stormspb";
+
+package storms.v1;
+
+// Sector size of the volume or snapshot.  
+enum SectorSizeEnum {
+    // Proto3 default value Unspecified
+    SECTOR_SIZE_ENUM_UNSPECIFIED = 0; 
+
+    // OS disk sector size 
+    SECTOR_SIZE_ENUM_512 = 1;
+
+    // Default sector size for volumes/snapshots
+    SECTOR_SIZE_ENUM_4096 = 2;
+}
+
+// Block storage Volume 
+message Volume {
+    // UUID of the volume 
+    string uuid = 1 [(validate.rules).string.uuid = true];
+
+    // Vendor volume id
+    string vendor_volume_id = 2;
+
+    // Size of the disk, in bytes.
+    uint64 size = 3 [(common.field_option.sensitive) = "false"];
+
+    // Sector size of the volume.
+    SectorSizeEnum sector_size = 4;
+
+    // Access control list (ACL) for the disk.
+    repeated string acl = 5 [(common.field_option.sensitive) = "false"];
+
+    // Indicates if the volume is created and available.  Default to false.
+    // Available meaning not deleted, nor in any transit states: creating, deleting, migrating, etc. 
+    bool is_available = 6 [(common.field_option.sensitive) = "false"];
+
+    // optional 
+    string source_snapshot_uuid = 7 [(validate.rules).string.uuid = true];
+}
+
+// Block storage Snapshot 
+message Snapshot {
+    // UUID of the snapshot 
+    string uuid = 1 [(validate.rules).string.uuid = true];
+
+    string vendor_snapshot_id = 2;
+
+    // Size of the snapshot, in bytes.
+    uint64 size = 3 [(common.field_option.sensitive) = "false"];
+
+    // Sector size of the snapshot.
+    SectorSizeEnum sector_size = 4;
+
+    // Indicates if the snapshot is created and available.  Default to false.
+    // Available meaning not deleted, nor in any transit states: creating, deleting, migrating, etc. 
+    bool is_available = 5 [(common.field_option.sensitive) = "false"];
+
+    // source volume uuid 
+    string source_volume_uuid = 6 [(validate.rules).string.uuid = true];
+}
+
+
+// Operation states for an Operation.
+enum OperationState {
+    // Default value.
+    OPERATION_STATE_UNSPECIFIED = 0;
+
+    // Operation completed successfully.
+    OPERATION_STATE_SUCCEEDED = 1;
+
+    // Operation failed to complete.
+    OPERATION_STATE_FAILED = 2;
+
+    // Operation has not yet completed.
+    OPERATION_STATE_IN_PROGRESS = 3;
+}
+
+// Resource types.
+enum ResourceType {
+    // Default value.
+    RESOURCE_TYPE_UNSPECIFIED = 0;
+
+    // Volume.
+    RESOURCE_TYPE_VOLUME = 1;
+
+    // Snapshot.
+    RESOURCE_TYPE_SNAPSHOT = 2;
+}

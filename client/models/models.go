@@ -4,15 +4,17 @@ package models
 
 type Volume struct {
 	UUID               string
+	VendorVolumeID     string
 	Size               uint64
 	SectorSize         uint32
-	Acls               []string
+	ACL                []string
 	IsAvailable        bool
 	SourceSnapshotUUID string
 }
 
 type Snapshot struct {
 	UUID             string
+	VendorSnapshotID string
 	Size             uint64
 	SectorSize       uint32
 	IsAvailable      bool
@@ -46,14 +48,16 @@ type CreateVolumeSource interface {
 	isCreateVolumeSource()
 }
 
+// For creating a volume from scratch.
 type NewVolumeSpec struct {
-	Size       uint64
-	SectorSize uint32
+	Size       uint64 // Size of volume (unit: bytes)
+	SectorSize uint32 // Size of sector (unit: bytes)
 }
 
 // isCreateVolumeSource implements the CreateVolumeSource interface for NewVolumeSpec.
 func (NewVolumeSpec) isCreateVolumeSource() {}
 
+// For creating a volume from snapshot. The volume should inherit relevant properties of the snapshot such as size.
 type SnapshotSource struct {
 	SnapshotUUID string
 }
@@ -67,7 +71,7 @@ type CreateVolumeResponse struct {
 
 type ResizeVolumeRequest struct {
 	UUID string
-	Size uint64
+	Size uint64 // Size of volume (unit: bytes)
 }
 
 type ResizeVolumeResponse struct {
@@ -84,7 +88,7 @@ type DeleteVolumeResponse struct {
 
 type AttachVolumeRequest struct {
 	UUID string
-	Acls []string
+	ACL  []string // Unique NQN of host to attach the volume to
 }
 
 type AttachVolumeResponse struct {
@@ -93,7 +97,7 @@ type AttachVolumeResponse struct {
 
 type DetachVolumeRequest struct {
 	UUID string
-	Acls []string
+	ACL  []string // Unique NQN of host to deatch the volume from
 }
 
 type DetachVolumeResponse struct {

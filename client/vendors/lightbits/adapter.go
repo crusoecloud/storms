@@ -54,9 +54,10 @@ func (a *ClientAdapter) GetVolume(_ context.Context, req *models.GetVolumeReques
 	return &models.GetVolumeResponse{
 		Volume: &models.Volume{
 			UUID:               lbResp.Name,
+			VendorVolumeID:     lbResp.UUID.String(),
 			Size:               sz,
 			SectorSize:         sectorSz,
-			Acls:               lbResp.ACL.Values,
+			ACL:                lbResp.ACL.Values,
 			IsAvailable:        volumeStateToIsAvail(lbResp.State),
 			SourceSnapshotUUID: lbResp.SourceSnapshotName,
 		},
@@ -87,9 +88,10 @@ func (a *ClientAdapter) GetVolumes(_ context.Context, _ *models.GetVolumesReques
 
 		return &models.Volume{
 			UUID:               v.Name,
+			VendorVolumeID:     v.UUID.String(),
 			Size:               sz,
 			SectorSize:         sectorSz,
-			Acls:               v.ACL.Values,
+			ACL:                v.ACL.Values,
 			IsAvailable:        volumeStateToIsAvail(v.State),
 			SourceSnapshotUUID: v.SourceSnapshotName,
 		}
@@ -186,9 +188,10 @@ func translateLBVolToGenericVolHelper(vol *Volume) (*models.Volume, error) {
 
 	return &models.Volume{
 		UUID:               vol.Name,
+		VendorVolumeID:     vol.UUID.String(),
 		Size:               uint64(sizeUint64),
 		SectorSize:         sectorSize,
-		Acls:               vol.ACL.Values,
+		ACL:                vol.ACL.Values,
 		IsAvailable:        volumeStateToIsAvail(vol.State),
 		SourceSnapshotUUID: vol.SourceSnapshotName,
 	}, nil
@@ -235,11 +238,11 @@ func (a *ClientAdapter) AttachVolume(_ context.Context, req *models.AttachVolume
 		return nil, fmt.Errorf("failed to get volume for attachment: %w", err)
 	}
 
-	if len(req.Acls) != 1 {
+	if len(req.ACL) != 1 {
 		return nil, errMustHaveOneACL
 	}
 
-	addNodes := req.Acls
+	addNodes := req.ACL
 	removeNodes := []string{}
 	acl := constructACLSet(getVolResp.ACL.Values, addNodes, removeNodes)
 	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{
@@ -264,12 +267,12 @@ func (a *ClientAdapter) DetachVolume(_ context.Context, req *models.DetachVolume
 		return nil, fmt.Errorf("failed to get volume for detachment: %w", err)
 	}
 
-	if len(req.Acls) != 1 {
+	if len(req.ACL) != 1 {
 		return nil, errMustHaveOneACL
 	}
 
 	addNodes := []string{}
-	removeNodes := req.Acls
+	removeNodes := req.ACL
 	acl := constructACLSet(getVolResp.ACL.Values, addNodes, removeNodes)
 	err = a.client.UpdateVolume(getVolResp.UUID, &UpdateVolumeRequest{
 		ACL: &ACL{
@@ -307,6 +310,7 @@ func (a *ClientAdapter) GetSnapshot(_ context.Context, req *models.GetSnapshotRe
 	resp := &models.GetSnapshotResponse{
 		Snapshot: &models.Snapshot{
 			UUID:             lbResp.Name,
+			VendorSnapshotID: lbResp.UUID.String(),
 			Size:             sz,
 			SectorSize:       sectorSz,
 			IsAvailable:      snapshotStateToIsAvail(lbResp.State),
@@ -341,6 +345,7 @@ func (a *ClientAdapter) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRe
 
 		return &models.Snapshot{
 			UUID:             s.Name,
+			VendorSnapshotID: s.UUID.String(),
 			Size:             sz,
 			SectorSize:       sectorSz,
 			IsAvailable:      snapshotStateToIsAvail(s.State),
