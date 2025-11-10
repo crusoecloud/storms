@@ -64,7 +64,7 @@ func (b *backend) createNewVolume(apiKey, name string, size, sectorSize uint) (*
 		id:         uuid.NewString(),
 		size:       size,
 		sectorSize: sectorSize,
-		acls:       []string{},
+		acl:        []string{},
 	}
 
 	b.volumes[v.name] = v
@@ -87,7 +87,7 @@ func (b *backend) createVolumeFromSnapshot(apiKey, name, srcSnapshotName string)
 		id:         uuid.NewString(),
 		size:       s.size,
 		sectorSize: s.sectorSize,
-		acls:       []string{},
+		acl:        []string{},
 	}
 
 	b.volumes[v.name] = v
@@ -128,7 +128,7 @@ func (b *backend) deleteVolume(apiKey, id string) error {
 	return nil
 }
 
-func (b *backend) attachVolume(apiKey, id string, acls []string) (*Volume, error) {
+func (b *backend) attachVolume(apiKey, id string, acl []string) (*Volume, error) {
 	if apiKey != secretAPIKey {
 		return nil, errAuth
 	}
@@ -138,11 +138,11 @@ func (b *backend) attachVolume(apiKey, id string, acls []string) (*Volume, error
 		return nil, errResourceNotFound
 	}
 
-	if len(v.acls) != 0 {
+	if len(v.acl) != 0 {
 		return nil, errVolAttached
 	}
 
-	v.acls = acls
+	v.acl = acl
 
 	return v, nil
 }
@@ -157,11 +157,11 @@ func (b *backend) detachVolume(apiKey, id string) (*Volume, error) {
 		return nil, errResourceNotFound
 	}
 
-	if len(v.acls) == 0 {
+	if len(v.acl) == 0 {
 		return nil, errVolDetached
 	}
 
-	v.acls = []string{}
+	v.acl = []string{}
 
 	return v, nil
 }

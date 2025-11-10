@@ -1,0 +1,20 @@
+clusters:
+
+  # Lightbits txdr-dev
+  - vendor: "lightbits"
+    cluster_id: # UUID
+    vendor_config:
+      auth_token: # JWT Token
+      addr_strs: 
+        - 1.1.1.1 # IPs 
+      project_name: "dev"
+      replication_factor: 2
+
+  # Lightbits vaeq-staging
+  - vendor: lightbits
+    cluster_id: # UUID
+    vendor_config:
+      auth_token: # JWT Token
+      addr_strs: # IPs
+      project_name: "staging"
+      replication_factor: 2
