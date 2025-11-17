@@ -30,8 +30,6 @@ func Test_NewSyncCmd(t *testing.T) {
 			args: []string{
 				"--volume-id",
 				"d8ba36d6-f949-45b2-babe-dc65c26a9a13",
-				"--cluster-id",
-				"6a898a70-8675-4c48-acd9-54cb167c3a3e",
 			},
 			expectErr: false,
 		},
@@ -40,18 +38,8 @@ func Test_NewSyncCmd(t *testing.T) {
 			args: []string{
 				"--snapshot-id",
 				"959b1026-f4a1-4f93-b62f-92d9870fe2f7",
-				"--cluster-id",
-				"6a898a70-8675-4c48-acd9-54cb167c3a3e",
 			},
 			expectErr: false,
-		},
-		{
-			name: "invalid; provided cluster id with no resource",
-			args: []string{
-				"--cluster-id",
-				"6a898a70-8675-4c48-acd9-54cb167c3a3e",
-			},
-			expectErr: true,
 		},
 		{
 			name: "invalid; provided mutually exclusive arguments",
@@ -59,8 +47,6 @@ func Test_NewSyncCmd(t *testing.T) {
 				"--all",
 				"--snapshot-id",
 				"959b1026-f4a1-4f93-b62f-92d9870fe2f7",
-				"--cluster-id",
-				"6a898a70-8675-4c48-acd9-54cb167c3a3e",
 			},
 			expectErr: true,
 		},

@@ -12,8 +12,8 @@ import (
 )
 
 var (
-	errUnexpected          = errors.New("an unexpected error occurred")
-	errUnspecifiedResource = errors.New("unspecified resource")
+	errUnexpected              = errors.New("an unexpected error occurred")
+	errUnspecifiedResourceType = errors.New("unspecified resource type")
 )
 
 func (s *Service) GetVolume(ctx context.Context, req *storms.GetVolumeRequest,
@@ -264,31 +264,60 @@ func (s *Service) DeleteSnapshot(ctx context.Context, req *storms.DeleteSnapshot
 
 func (s *Service) SyncResource(ctx context.Context, req *storms.SyncResourceRequest,
 ) (*storms.SyncResourceResponse, error) {
-	r := &resource.Resource{ID: req.Uuid, ClusterID: req.ClusterUuid}
-	if req.ResourceType == storms.ResourceType_RESOURCE_TYPE_SNAPSHOT {
-		r.ResourceType = resource.TypeSnapshot
-	} else if req.ResourceType == storms.ResourceType_RESOURCE_TYPE_VOLUME {
-		r.ResourceType = resource.TypeVolume
-	}
-	err := s.resourceManager.Map(r)
-	if err != nil {
-		log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to map resource")
-	}
-	rm, err := s.syncResourceHelper(ctx, req)
-	if err != nil {
-		return nil, fmt.Errorf("failed to sync resource: %w", err)
+	// If cluster uuid is provided, target that cluster. Else, look through all clusters.
+	var targetClusterIDs []string
+	if req.ClusterUuid == "" {
+		targetClusterIDs = s.clusterManager.AllIDs()
+	} else {
+		targetClusterIDs = []string{req.ClusterUuid}
 	}
 
-	if rm {
-		err := s.resourceManager.Unmap(req.Uuid)
+	found := false
+	for _, targetClusterID := range targetClusterIDs {
+		r := &resource.Resource{ID: req.Uuid, ClusterID: targetClusterID}
+		if req.ResourceType == storms.ResourceType_RESOURCE_TYPE_SNAPSHOT {
+			r.ResourceType = resource.TypeSnapshot
+		} else if req.ResourceType == storms.ResourceType_RESOURCE_TYPE_VOLUME {
+			r.ResourceType = resource.TypeVolume
+		}
+
+		// Map resource to client to enable request to be routed to cluster
+		err := s.resourceManager.Map(r)
+		if err != nil {
+			log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to map resource")
+		}
+		reqWithClusterID := &storms.SyncResourceRequest{
+			ResourceType: req.ResourceType,
+			Uuid:         req.Uuid,
+			ClusterUuid:  targetClusterID,
+		}
+		found, err = s.syncResourceHelper(ctx, reqWithClusterID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to sync resource: %w", err)
+		}
+
+		// If resource is found, keep it in mapped.
+		if found {
+			log.Info().Str("resource_id", req.Uuid).Str("cluster_id", targetClusterID).Msg("resource found and added")
+
+			break
+		}
+
+		// Unmap and proceed to the other clients.
+		err = s.resourceManager.Unmap(req.Uuid)
 		if err != nil {
 			log.Warn().Str("resource_id", req.Uuid).Interface("err", err).Msg("failed to unmap resource")
 		}
 	}
 
+	if !found {
+		log.Info().Str("resource_id", req.Uuid).Msg("resource not found and removed")
+	}
+
 	return &storms.SyncResourceResponse{}, nil
 }
 
+// Attempts to fetch resource from managed clusters. Returns true/false for found/not found and possible error.
 func (s *Service) syncResourceHelper(ctx context.Context, req *storms.SyncResourceRequest,
 ) (bool, error) {
 	switch req.ResourceType {
@@ -298,10 +327,10 @@ func (s *Service) syncResourceHelper(ctx context.Context, req *storms.SyncResour
 		}
 		getVolResp, err := s.GetVolume(ctx, getVolReq)
 		if err != nil {
-			return true, fmt.Errorf("failed to get volume: %w", err)
+			return false, nil //nolint:nilerr // non-nil error means not found
 		}
 		if getVolResp.Volume != nil {
-			return false, nil
+			return true, nil
 		}
 
 	case storms.ResourceType_RESOURCE_TYPE_SNAPSHOT:
@@ -310,17 +339,17 @@ func (s *Service) syncResourceHelper(ctx context.Context, req *storms.SyncResour
 		}
 		getSnapshotResp, err := s.GetSnapshot(ctx, getSnapshotReq)
 		if err != nil {
-			return true, fmt.Errorf("failed to get volume: %w", err)
+			return false, nil //nolint:nilerr // non-nil error means not found
 		}
 		if getSnapshotResp.Snapshot != nil {
-			return false, nil
+			return true, nil
 		}
 
 	case storms.ResourceType_RESOURCE_TYPE_UNSPECIFIED:
-		return true, errUnspecifiedResource
+		return false, errUnspecifiedResourceType
 	}
 
-	return true, errUnexpected
+	return false, errUnexpected
 }
 
 func (s *Service) SyncAllResources(_ context.Context, _ *storms.SyncAllResourcesRequest,
