@@ -211,7 +211,7 @@ message SyncResourceRequest {
     // Required - UUID of the resource
     string uuid = 2 [(validate.rules).string.uuid = true];
 
-    // Required - the UUID of the cluster this resource belongs on
+    // Optional - the UUID of the cluster this resource belongs on
     string cluster_uuid = 3 [(validate.rules).string.uuid = true];
 }
 

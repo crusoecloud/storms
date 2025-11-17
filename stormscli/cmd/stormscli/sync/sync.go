@@ -17,12 +17,11 @@ const (
 	allFlag        = "all"
 	volumeIDFlag   = "volume-id"
 	snapshotIDFlag = "snapshot-id"
-	clusterIDFlag  = "cluster-id"
 
 	syncCmdExMsg = `
 sync --all
-sync --volume-id <volume-id> --cluster-id <cluster-id>
-sync --snapshot-id <snapshot-id> --cluster-id <cluster-id>
+sync --volume-id <volume-id>
+sync --snapshot-id <snapshot-id>
 	`
 )
 
@@ -65,7 +64,6 @@ func NewSyncCmd(cmdFactory *utils.CmdFactory) *cobra.Command {
 	}
 
 	utils.NewFlagBuilder(cmd).
-		String(clusterIDFlag, "", "cluster id of resource", false).
 		String(volumeIDFlag, "", "uuid of volume", false).
 		String(snapshotIDFlag, "", "uuid of snapshot", false).
 		Bool(allFlag, "", "provide this flag to sync all reources", false)
@@ -88,19 +86,19 @@ func syncResource(cmd *cobra.Command, client storms.StorageManagementServiceClie
 
 	volID := utils.MustGetStringFlag(cmd, volumeIDFlag)
 	snapshotID := utils.MustGetStringFlag(cmd, snapshotIDFlag)
-	clusterID := utils.MustGetStringFlag(cmd, clusterIDFlag)
 
 	if volID != "" {
 		resourceID = volID
+		resourceType = storms.ResourceType_RESOURCE_TYPE_VOLUME
 	} else if snapshotID != "" {
 		resourceID = snapshotID
+		resourceType = storms.ResourceType_RESOURCE_TYPE_SNAPSHOT
 	}
 	_, err := client.SyncResource(
 		cmd.Context(),
 		&storms.SyncResourceRequest{
 			ResourceType: resourceType,
 			Uuid:         resourceID,
-			ClusterUuid:  clusterID,
 		})
 	if err != nil {
 		return fmt.Errorf("failed to sync resource: %w", err)
@@ -113,7 +111,6 @@ func validateFlags(cmd *cobra.Command) error {
 	all := utils.MustGetBoolFlag(cmd, allFlag)
 	volID := utils.MustGetStringFlag(cmd, volumeIDFlag)
 	snapshotID := utils.MustGetStringFlag(cmd, snapshotIDFlag)
-	clusterID := utils.MustGetStringFlag(cmd, clusterIDFlag)
 
 	setFlags := 0
 	if volID != "" {
@@ -122,13 +119,9 @@ func validateFlags(cmd *cobra.Command) error {
 	if snapshotID != "" {
 		setFlags++
 	}
-	if setFlags != 0 && clusterID == "" {
-		return fmt.Errorf("when specifying volume or snapshot ID, cluster ID must be provided: %w", errUsage)
-	}
 	if all {
 		setFlags++
 	}
-
 	if setFlags == 0 {
 		return fmt.Errorf("must specify exactly one of --volume-id, --snapshot-id, or --all: %w", errUsage)
 	}

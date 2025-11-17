@@ -1208,7 +1208,7 @@ type SyncResourceRequest struct {
 	ResourceType ResourceType `protobuf:"varint,1,opt,name=resource_type,json=resourceType,proto3,enum=storms.v1.ResourceType" json:"resource_type,omitempty"`
 	// Required - UUID of the resource
 	Uuid string `protobuf:"bytes,2,opt,name=uuid,proto3" json:"uuid,omitempty"`
-	// Required - the UUID of the cluster this resource belongs on
+	// Optional - the UUID of the cluster this resource belongs on
 	ClusterUuid string `protobuf:"bytes,3,opt,name=cluster_uuid,json=clusterUuid,proto3" json:"cluster_uuid,omitempty"`
 }
 
