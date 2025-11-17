@@ -6,14 +6,12 @@ import (
 	"github.com/spf13/cobra"
 	admin "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/admin/v1"
 	"gitlab.com/crusoeenergy/island/storage/storms/stormscli/cmd/utils"
-	// appconfigs "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/app/configs".
 )
 
 func NewReloadCmd(cmdFactory *utils.CmdFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "reload",
 		Short: "Triggers a zero-downtime cluster configuration reload.",
-		// TODO - consider the case where use reloads after modifying the app config file
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := cmdFactory.AdminClientProvider(cmd.Context())
@@ -30,8 +28,6 @@ func NewReloadCmd(cmdFactory *utils.CmdFactory) *cobra.Command {
 			return nil
 		},
 	}
-
-	// appconfigs.AddFlags(cmd)
 
 	return cmd
 }

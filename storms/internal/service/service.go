@@ -232,31 +232,37 @@ func (s *Service) fetchResourcesFromCluster(clusterID string) []*resource.Resour
 	getVolResp, err := c.GetVolumes(ctx, &models.GetVolumesRequest{})
 	if err != nil {
 		log.Err(err).Str("cluster_id", clusterID).Msg("failed to get volumes")
+	} else {
+		volumes := lo.Map(getVolResp.Volumes, func(v *models.Volume, _ int) *resource.Resource {
+			return &resource.Resource{
+				ID:           v.UUID,
+				ClusterID:    clusterID,
+				ResourceType: resource.TypeVolume,
+			}
+		})
+		resources = append(resources, volumes...)
+		log.Info().Str("cluster_id", clusterID).Msgf("fetched %d volumes", len(volumes))
 	}
-	volumes := lo.Map(getVolResp.Volumes, func(v *models.Volume, _ int) *resource.Resource {
-		return &resource.Resource{
-			ID:           v.UUID,
-			ClusterID:    clusterID,
-			ResourceType: resource.TypeVolume,
-		}
-	})
-	resources = append(resources, volumes...)
-	log.Info().Str("cluster_id", clusterID).Msgf("fetched %d volumes", len(volumes))
 
 	// Fetch snapshots.
 	getSnapshotResp, err := c.GetSnapshots(ctx, &models.GetSnapshotsRequest{})
 	if err != nil {
 		log.Err(err).Str("cluster_id", clusterID).Msg("failed to get snaphots")
+	} else {
+		snapshots := lo.Map(getSnapshotResp.Snapshots, func(s *models.Snapshot, _ int) *resource.Resource {
+			return &resource.Resource{
+				ID:           s.UUID,
+				ClusterID:    clusterID,
+				ResourceType: resource.TypeSnapshot,
+			}
+		})
+		resources = append(resources, snapshots...)
+		log.Info().Str("cluster_id", clusterID).Msgf("fetched %d snapshots", len(snapshots))
 	}
-	snapshots := lo.Map(getSnapshotResp.Snapshots, func(s *models.Snapshot, _ int) *resource.Resource {
-		return &resource.Resource{
-			ID:           s.UUID,
-			ClusterID:    clusterID,
-			ResourceType: resource.TypeSnapshot,
-		}
-	})
-	resources = append(resources, snapshots...)
-	log.Info().Str("cluster_id", clusterID).Msgf("fetched %d snapshots", len(snapshots))
+
+	if len(resources) == 0 {
+		log.Info().Str("cluster_id", clusterID).Msg("fetched 0 resources")
+	}
 
 	return resources
 }

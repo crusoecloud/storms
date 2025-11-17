@@ -24,11 +24,6 @@ func NewInMemoryManager() *InMemoryManager {
 func (m *InMemoryManager) Set(clusterID string, c client.Client) error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, exists := m.clients[clusterID]; exists {
-		// This can be idempotent by just returning nil if the client is the same,
-		// or replacing it. For now, we'll error.
-		return fmt.Errorf("cluster with ID '%s' already exists", clusterID)
-	}
 	m.clients[clusterID] = c
 
 	return nil
