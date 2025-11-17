@@ -48,7 +48,7 @@ func (m *InMemoryManager) GetResourceCluster(resourceID string) (string, error) 
 
 	r, ok := m.resourceIDToResourceMetadata[resourceID]
 	if !ok {
-		return "", fmt.Errorf("failed to find resource's cluster: %w", errUnmappedResource)
+		return "", fmt.Errorf("couldn't find cluster for resource %s: %w", resourceID, errUnmappedResource)
 	}
 
 	return r.ClusterID, nil
