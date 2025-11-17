@@ -64,12 +64,16 @@ func (s *Service) CreateVolume(ctx context.Context, req *storms.CreateVolumeRequ
 	var err error
 	switch source := req.GetSource().(type) {
 	case *storms.CreateVolumeRequest_FromSnapshot:
-		clusterID, err = s.resourceManager.GetResourceCluster(source.FromSnapshot.SnapshotUuid)
+		snapshotID := source.FromSnapshot.SnapshotUuid
+		clusterID, err = s.resourceManager.GetResourceCluster(snapshotID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get cluster for resource: %w", err)
+		}
 	case *storms.CreateVolumeRequest_FromNew:
 		clusterID, err = s.allocator.SelectClusterForNewResource()
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to get cluster for resource: %w", err)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get allocate cluster for resource: %w", err)
+		}
 	}
 
 	c, err := s.clusterManager.Get(clusterID)
