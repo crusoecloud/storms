@@ -12,7 +12,6 @@ func NewShowCmd(cmdFactory *utils.CmdFactory) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "show",
 		Short: "Show information about the StorMS application",
-		// TODO - consider the case where use reloads after modifying the app config file
 		Args: cobra.ExactArgs(0),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			client, conn, err := cmdFactory.AdminClientProvider(cmd.Context())

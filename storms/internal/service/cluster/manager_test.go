@@ -60,11 +60,6 @@ func Test_Set(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := setupManager()
 			err := manager.Set(tt.input.clusterID, tt.input.c)
-			if tt.expectErr {
-				require.Error(t, err)
-
-				return
-			}
 			require.NoError(t, err)
 		})
 	}
