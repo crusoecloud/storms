@@ -49,7 +49,7 @@ func attachVolume(cmd *cobra.Command, client storms.StorageManagementServiceClie
 		return fmt.Errorf("failed to attach volume: %w", err)
 	}
 
-	cmd.Printf("Added to ACL of %s: %v\n", id, acl)
+	cmd.Printf("Added to ACL of volume %s: %v\n", id, acl)
 
 	return nil
 }

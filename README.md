@@ -13,8 +13,11 @@ If you update `.proto` files that that define StorMS, run `make proto` to genera
 To run StorMS, first build the binary. Invokign the binary exposes its CLI, which will give instructions on how to start a StorMS instance.
 
 ```
-make build # builds the StorMS binary into dist/
-dist/storms -h # invoke the binary 
+# builds the StorMS and StorMSCLI binary into storms/dist/ and stormscli/dist, respectively
+
+make build
+
+dist/storms -h # invoke the service binary 
 ```
 
 To start a StorMS instance, do
@@ -22,7 +25,7 @@ To start a StorMS instance, do
 ```
 make build 
 cd dist
-storms serve
+storms --config <path-to-storms.yaml>
 ```
 
 The `serve` command will start a running StorMS application using configuration specified in a user-provided (`--config`) or default file. 
@@ -53,18 +56,25 @@ cluster_file: dev/clusters.yaml
 ~storms/ cat dev/clusters.yaml
 
 clusters:
-- vendor: "my-vendor"
-  cluster_id: # provide a unique UUID here to identify the cluster
+- vendor: "lightbits"
+  cluster_id: <uuid># provide a unique UUID here to identify the cluster
   vendor_config: # supports any kind of custom mapping
-    api_key: "top-secret-api-key"
-    endpoints: ["1.1.1.1", "2.2.2.2", "3.3.3.3"]
-    cluster_tag: "some-tag"
+    api_key: <api-key>
+    addr_strs: <addrs_strs>
+    project_name: dev
+    replication_factor: 2
 ```
 
 ```
-~storms/dist storms app start --config dev/storms.yaml 
+~storms/dist/ ./storms --config dev/storms.yaml 
 
 ** StorMS should run at this point**
+```
+
+In a seperate terminal session, you can interface with the StorMS service using the StorMS-CLI.
+
+```
+~stormscli/dist/ ./stormscli --target-addr  127.0.0.1:9290 app show
 ```
 
 ## Supported Vendors
@@ -76,8 +86,8 @@ clusters:
     vendor_config:
       auth_token: <lightbits-jwt-token>
       addr_strs: 
-        - `<host-ip>:<port>` # example: 172.2.1.12:443
-          `<host-ip>:<port>` 
+        - <host-ip>:<port> # example: 172.2.1.12:443
+        - <host-ip>:<port> 
       project_name: <[dev,staging,prod]>
       replication_factor: <[2,3]>
 ```
@@ -88,7 +98,13 @@ clusters:
   - vendor: "purestorage"
     cluster_id: <uuid>
     vendor_config:
-      ## TODO ##
+      endpoints: 
+        - <array-ip> # Recommended: floating IP of Pure FlashArrays
+      ## Use one of: auth-token OR username-password
+      auth_token: <auth-token> # Can be generated in array's GUI
+      username: "" # Leave empty if using auth token
+      password: "" # Leave empty if using auth token
+      api_version: 2.26 # Use this unless instructed otherwise
 ```
 
 ### Krusoe (this is a mock backend for development purposes)
@@ -139,7 +155,12 @@ clusters:
   - vendor: purestorage
     cluster_id: 3b73e389-a1a8-4520-9eb6-39f47c449f9e
     vendor_config:
-      ## TODO ##
+      endpoints: 
+        - 5.5.5.5
+      auth_token: SECRET_AUTH_TOKEN
+      username: "" 
+      password: ""
+      api_version: 2.26 # Use this unless instructed otherwise
   - vendor: krusoe
     cluster_id: 00b35e88-06b1-4ea4-89ad-49407217454f
     vendor_config:

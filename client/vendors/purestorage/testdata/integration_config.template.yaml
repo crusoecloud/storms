@@ -1,0 +1,24 @@
+# PureStorage Integration Test Configuration Template
+#
+# Instructions:
+# 1. Copy this file to integration_config.yaml
+# 2. Update the endpoints and authentication settings for your FlashArray
+# 3. Run: go test -tags=integration ./client/vendors/purestorage -v
+#
+# Example:
+# cp testdata/integration_config.template.yaml testdata/integration_config.yaml
+# # Edit integration_config.yaml with your settings
+# go test -tags=integration ./client/vendors/purestorage -v
+
+# FlashArray connection settings
+endpoints:
+  - "YOUR_FLASHARRAY_HOSTNAME_HERE"  # e.g., "flasharray-ct0.example.com"
+  # - "flasharray-ct1.example.com"   # Optional: secondary controller if you are not using vif endpoint
+
+# Authentication - use either API token OR username/password
+auth_token: "YOUR_API_TOKEN_HERE"    # Preferred: Get from FlashArray GUI -> Settings -> API Tokens
+username: ""                         # Alternative: your FlashArray username
+password: ""                         # Alternative: your FlashArray password
+
+# API version (optional, defaults to DefaultAPIVersion)
+api_version: "2.45"

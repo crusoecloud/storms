@@ -47,11 +47,7 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 			return nil, fmt.Errorf("failed to parse Krusoe config: %w", err)
 		}
 
-		log.Info().
-			Strs("addrs", cfg.AddrsStrs).
-			Str("project_name", cfg.ProjectName).
-			Int("replication_factor", cfg.ReplicationFactor).
-			Msg("Creating new Lightbits client")
+		log.Info().Msgf("Creating new Lightbits client: %#v", cfg)
 
 		clientAdapter, err := lightbits.NewClientAdapter(&cfg)
 		if err != nil {
@@ -62,12 +58,11 @@ func NewClient(vendor string, cfg map[string]interface{}) (Client, error) {
 
 	case "purestorage":
 		var cfg purestorage.ClientConfig
-		if err := yaml.Unmarshal(cfgBytes, &cfg); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal purestorage cluster config: %w", err)
+		if err := purestorage.ParseConfig(cfgBytes, &cfg); err != nil {
+			return nil, fmt.Errorf("failed to parse PureStorage config: %w", err)
 		}
+		log.Info().Msgf("Creating new PureStorage client: %#v", cfg)
 
-		log.Info().Strs("endpoints", cfg.Endpoints).Msg("Creating new PureStorage client")
-	
 		client, err := purestorage.NewClient(&cfg)
 		if err != nil {
 			return nil, fmt.Errorf("failed to create new purestorage client adapter: %w", err)
