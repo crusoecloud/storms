@@ -1,0 +1,7 @@
+# PureStorage vendor-specific config for testing
+
+endpoints: ['10.0.0.1', '10.0.0.2']
+auth_token: "test-api-token-12345"
+username: "testuser"
+password: "testpass"
+api_version: "2.45"

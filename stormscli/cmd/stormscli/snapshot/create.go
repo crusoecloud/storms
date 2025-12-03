@@ -49,5 +49,7 @@ func createSnapshot(cmd *cobra.Command, client storms.StorageManagementServiceCl
 		return fmt.Errorf("failed to create snapshot: %w", err)
 	}
 
+	cmd.Printf("Created snapshot: %s\n", id)
+
 	return nil
 }
