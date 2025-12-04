@@ -98,7 +98,7 @@ go test -tags=integration ./client/vendors/purestorage -v -timeout=5m -run TestI
 # Expected output:
 === RUN   TestIntegration_CreateVolume_NewVolume
     integration_test.go:58: Creating volume: storms-test-vol-a1b2c3d4 (size: 2147483648 bytes, sector: 4096)
-    integration_test.go:72: Successfully created volume: &{UUID:storms-test-vol-a1b2c3d4 Size:2147483648 SectorSize:4096 Acls:[] IsAvailable:true SourceSnapshotUUID:}
+    integration_test.go:72: Successfully created volume: &{UUID:storms-test-vol-a1b2c3d4 Size:2147483648 SectorSize:4096 ACL:[] IsAvailable:true SourceSnapshotUUID:}
     integration_test.go:77: Volume storms-test-vol-a1b2c3d4 created successfully. Manual cleanup required from FlashArray.
 --- PASS: TestIntegration_CreateVolume_NewVolume (2.34s)
 ...
