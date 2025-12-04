@@ -1483,14 +1483,14 @@ func TestIntegration_AttachVolume_ValidationErrors(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), operationTimeout)
 	defer cancel()
 
-	t.Run("MultipleAcls", func(t *testing.T) {
-		// Test with multiple ACLs (should fail - only one ACL allowed)
+	t.Run("MultipleAclValues", func(t *testing.T) {
+		// Test with multiple ACL values (should fail - only one ACL allowed)
 		req := &models.AttachVolumeRequest{
 			UUID: "test-volume",
-			Acls: []string{uuid.New().String(), uuid.New().String()},
+			ACL:  []string{uuid.New().String(), uuid.New().String()},
 		}
 
-		t.Logf("Attempting to attach volume with multiple ACLs")
+		t.Logf("Attempting to attach volume with multiple ACL values")
 		resp, err := client.AttachVolume(ctx, req)
 		require.Error(t, err)
 		require.Nil(t, resp)
@@ -1498,14 +1498,14 @@ func TestIntegration_AttachVolume_ValidationErrors(t *testing.T) {
 		t.Logf("Correctly failed with error: %v", err)
 	})
 
-	t.Run("MissingAcls", func(t *testing.T) {
-		// Test with no ACLs (should fail)
+	t.Run("MissingAclValues", func(t *testing.T) {
+		// Test with no ACL values (should fail)
 		req := &models.AttachVolumeRequest{
 			UUID: "test-volume",
-			Acls: []string{},
+			ACL:  []string{},
 		}
 
-		t.Logf("Attempting to attach volume with no ACLs")
+		t.Logf("Attempting to attach volume with no ACL values")
 		resp, err := client.AttachVolume(ctx, req)
 		require.Error(t, err)
 		require.Nil(t, resp)
@@ -1517,7 +1517,7 @@ func TestIntegration_AttachVolume_ValidationErrors(t *testing.T) {
 		// Test with empty volume UUID (should fail)
 		req := &models.AttachVolumeRequest{
 			UUID: "",
-			Acls: []string{uuid.New().String()},
+			ACL:  []string{uuid.New().String()},
 		}
 
 		t.Logf("Attempting to attach volume with empty UUID")
@@ -1531,7 +1531,7 @@ func TestIntegration_AttachVolume_ValidationErrors(t *testing.T) {
 	t.Run("MissingUUID", func(t *testing.T) {
 		// Test with missing volume UUID (should fail)
 		req := &models.AttachVolumeRequest{
-			Acls: []string{uuid.New().String()},
+			ACL: []string{uuid.New().String()},
 		}
 
 		t.Logf("Attempting to attach volume with missing UUID")
@@ -1596,7 +1596,7 @@ func TestIntegration_AttachVolume_NewHost(t *testing.T) {
 
 	attachReq := &models.AttachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 
 	attachResp, err := client.AttachVolume(ctx, attachReq)
@@ -1698,7 +1698,7 @@ func TestIntegration_AttachVolume_MultipleVolumesToSameHost(t *testing.T) {
 	t.Logf("Step 3: Attaching volume 1 to host")
 	attachReq1 := &models.AttachVolumeRequest{
 		UUID: vol1Name,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 	attachResp1, err := client.AttachVolume(ctx, attachReq1)
 	require.NoError(t, err)
@@ -1729,7 +1729,7 @@ func TestIntegration_AttachVolume_MultipleVolumesToSameHost(t *testing.T) {
 	t.Logf("Step 6: Attaching volume 2 to the same host")
 	attachReq2 := &models.AttachVolumeRequest{
 		UUID: vol2Name,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 	attachResp2, err := client.AttachVolume(ctx, attachReq2)
 	require.NoError(t, err)
@@ -1801,7 +1801,7 @@ func TestIntegration_AttachVolume_NonexistentVolume(t *testing.T) {
 	t.Logf("Attempting to attach non-existent volume: %s to host: %s", nonexistentVolume, hostUUID)
 	attachReq := &models.AttachVolumeRequest{
 		UUID: nonexistentVolume,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 
 	resp, err := client.AttachVolume(ctx, attachReq)
@@ -1860,7 +1860,7 @@ func TestIntegration_AttachVolume_Idempotency(t *testing.T) {
 	t.Logf("Step 3: Attaching volume to host (first time)")
 	attachReq := &models.AttachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 
 	attachResp1, err := client.AttachVolume(ctx, attachReq)
@@ -1921,7 +1921,7 @@ func TestIntegration_AttachVolume_AlreadyAttached(t *testing.T) {
 	t.Logf("Step 3: Attaching volume to host1: %s", host1UUID)
 	attachReq1 := &models.AttachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{host1UUID},
+		ACL:  []string{host1UUID},
 	}
 
 	attachResp1, err := client.AttachVolume(ctx, attachReq1)
@@ -1953,7 +1953,7 @@ func TestIntegration_AttachVolume_AlreadyAttached(t *testing.T) {
 	t.Logf("Step 6: Attempting to attach same volume to host2: %s", host2UUID)
 	attachReq2 := &models.AttachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{host2UUID},
+		ACL:  []string{host2UUID},
 	}
 
 	attachResp2, err := client.AttachVolume(ctx, attachReq2)
@@ -2047,7 +2047,7 @@ func TestIntegration_AttachVolume_DetachAndReattach(t *testing.T) {
 	t.Logf("Step 3: Attaching volume to host: %s", hostUUID)
 	attachReq := &models.AttachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 
 	attachResp, err := client.AttachVolume(ctx, attachReq)
@@ -2067,7 +2067,7 @@ func TestIntegration_AttachVolume_DetachAndReattach(t *testing.T) {
 	t.Logf("Step 5: Detaching volume from host")
 	detachReq := &models.DetachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 
 	detachResp, err := client.DetachVolume(ctx, detachReq)
@@ -2176,7 +2176,7 @@ func TestIntegration_AttachDetachVolume_Integration(t *testing.T) {
 	t.Logf("Step 3: Attaching volume 1 to host: %s", hostUUID)
 	attachReq1 := &models.AttachVolumeRequest{
 		UUID: vol1Name,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 	attachResp1, err := client.AttachVolume(ctx, attachReq1)
 	require.NoError(t, err)
@@ -2186,7 +2186,7 @@ func TestIntegration_AttachDetachVolume_Integration(t *testing.T) {
 	t.Logf("Step 3: Attaching volume 2 to same host")
 	attachReq2 := &models.AttachVolumeRequest{
 		UUID: vol2Name,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 	attachResp2, err := client.AttachVolume(ctx, attachReq2)
 	require.NoError(t, err)
@@ -2209,7 +2209,7 @@ func TestIntegration_AttachDetachVolume_Integration(t *testing.T) {
 	t.Logf("Step 5: Detaching volume 1 from host")
 	detachReq1 := &models.DetachVolumeRequest{
 		UUID: vol1Name,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 	detachResp1, err := client.DetachVolume(ctx, detachReq1)
 	require.NoError(t, err)
@@ -2241,7 +2241,7 @@ func TestIntegration_AttachDetachVolume_Integration(t *testing.T) {
 	t.Logf("Step 8: Detaching volume 2 from host")
 	detachReq2 := &models.DetachVolumeRequest{
 		UUID: vol2Name,
-		Acls: []string{hostUUID},
+		ACL:  []string{hostUUID},
 	}
 	detachResp2, err := client.DetachVolume(ctx, detachReq2)
 	require.NoError(t, err)
@@ -2373,7 +2373,7 @@ func TestIntegration_AttachVolume_MultipleHosts_FilterByNQN(t *testing.T) {
 	t.Logf("Step 3: Attaching volume to host1 using UUID: %s", uuid1)
 	attachReq := &models.AttachVolumeRequest{
 		UUID: volumeName,
-		Acls: []string{uuid1},
+		ACL:  []string{uuid1},
 	}
 
 	attachResp, err := client.AttachVolume(ctx, attachReq)

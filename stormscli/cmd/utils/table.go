@@ -13,12 +13,12 @@ import (
 
 func RenderVolumes(volumes []*storms.Volume) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"ID", "Size (bytes)", "Sector size", "ACLs", "Available", "VendorVolumeID"})
+	table.Header([]string{"ID", "Size (bytes)", "Sector size", "ACL", "Available", "VendorVolumeID"})
 
 	for _, v := range volumes {
 		if err := table.Append([]string{
 			v.Uuid,
-			fmt.Sprintf("%d bytes", v.Size),
+			fmt.Sprintf("%d", v.Size),
 			storms.SectorSizeEnum_name[int32(v.SectorSize)],
 			strings.Join(v.Acl, ","),
 			strconv.FormatBool(v.IsAvailable),
