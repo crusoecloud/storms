@@ -11,9 +11,9 @@ import (
 )
 
 var (
-	errUnsupportSectorSize       = errors.New("unsupported sector size")
-	errUnsupportSectorSizeUnit   = errors.New("unsupported size unit")
-	errUnsupportSectorSizeFormat = errors.New("unsupported sector size format")
+	errUnsupportedSectorSize = errors.New("unsupported sector size")
+	errUnsupportedSizeUnit   = errors.New("unsupported size unit")
+	errUnsupportedSizeFormat = errors.New("unsupported sector size format")
 )
 
 // ParseSize converts a size string like "10GiB", "2TiB" to bytes.
@@ -24,7 +24,7 @@ func ParseSizeString(s string) (uint64, error) {
 	re := regexp.MustCompile(`^(\d+)([GT]iB)$`)
 	matches := re.FindStringSubmatch(s)
 	if len(matches) != 3 {
-		return 0, errUnsupportSectorSizeFormat
+		return 0, errUnsupportedSizeFormat
 	}
 
 	numStr, unit := matches[1], matches[2]
@@ -39,7 +39,7 @@ func ParseSizeString(s string) (uint64, error) {
 	case "TiB":
 		return num * 1024 * 1024 * 1024 * 1024, nil
 	default:
-		return 0, errUnsupportSectorSizeUnit
+		return 0, errUnsupportedSizeUnit
 	}
 }
 
@@ -50,6 +50,6 @@ func ParseSectorSizeUint(u uint) (storms.SectorSizeEnum, error) {
 	case 4096:
 		return storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512, nil
 	default:
-		return 0, errUnsupportSectorSize
+		return 0, errUnsupportedSectorSize
 	}
 }

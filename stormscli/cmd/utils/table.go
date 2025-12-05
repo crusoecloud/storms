@@ -13,13 +13,13 @@ import (
 
 func RenderVolumes(volumes []*storms.Volume) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"ID", "Size (bytes)", "Sector size", "ACL", "Available", "VendorVolumeID"})
+	table.Header([]string{"ID", "Size", "Sector size", "ACL", "Available", "VendorVolumeID"})
 
 	for _, v := range volumes {
 		if err := table.Append([]string{
 			v.Uuid,
-			fmt.Sprintf("%d", v.Size),
-			storms.SectorSizeEnum_name[int32(v.SectorSize)],
+			formatBytes(v.Size),
+			formatSectorSize(v.SectorSize),
 			strings.Join(v.Acl, ","),
 			strconv.FormatBool(v.IsAvailable),
 			v.GetVendorVolumeId(),
@@ -37,16 +37,16 @@ func RenderVolumes(volumes []*storms.Volume) error {
 
 func RenderSnapshots(snapshots []*storms.Snapshot) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"ID", "Size (bytes)", "Sector size", "SrcVolID", "Available", "VendorSnapshotID"})
+	table.Header([]string{"ID", "Size", "Sector size", "SrcVolID", "Available", "VendorSnapshotID"})
 
-	for _, v := range snapshots {
+	for _, s := range snapshots {
 		if err := table.Append([]string{
-			v.Uuid,
-			fmt.Sprintf("%d bytes", v.Size),
-			storms.SectorSizeEnum_name[int32(v.SectorSize)],
-			v.SourceVolumeUuid,
-			strconv.FormatBool(v.IsAvailable),
-			v.GetVendorSnapshotId(),
+			s.Uuid,
+			formatBytes(s.Size),
+			formatSectorSize(s.SectorSize),
+			s.SourceVolumeUuid,
+			strconv.FormatBool(s.IsAvailable),
+			s.GetVendorSnapshotId(),
 		}); err != nil {
 			return fmt.Errorf("failed to append snapshot entry to table: %w", err)
 		}
@@ -79,4 +79,36 @@ func RenderClusters(clusters []*admin.Cluster) error {
 	}
 
 	return nil
+}
+
+func formatBytes(b uint64) string {
+	// EiB is 2^60, and we cannot go any higher with uint64
+	units := []string{"B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB"}
+
+	// Handle 0 explicitly
+	if b == 0 {
+		return "0 B"
+	}
+
+	size := float64(b)
+	i := 0
+
+	// While size > 1024 and we haven't run out of units
+	for size >= 1024 && i < len(units)-1 {
+		size /= 1024
+		i++
+	}
+
+	return fmt.Sprintf("%.2f %s", size, units[i])
+}
+
+func formatSectorSize(enum storms.SectorSizeEnum) string {
+	switch enum {
+	case storms.SectorSizeEnum_SECTOR_SIZE_ENUM_4096:
+		return "4096 B"
+	case storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512:
+		return "512 B"
+	default:
+		return "unspecified"
+	}
 }
