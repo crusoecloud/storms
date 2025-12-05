@@ -9,14 +9,16 @@ import (
 )
 
 const (
-	configFileFlag     = "config"
-	configFileDefault  = "dev/storms.yaml"
-	localIPFlag        = "local_ip"
-	localIPDefault     = "127.0.0.1"
-	grpcPortFlag       = "grpc_port"
-	grpcPortDefault    = 55554
-	clusterFileFlag    = "cluster_file"
-	clusterFileDefault = "dev/clusters.yaml"
+	configFileFlag           = "config"
+	configFileDefault        = "dev/storms.yaml"
+	localIPFlag              = "local_ip"
+	localIPDefault           = "127.0.0.1"
+	grpcPortFlag             = "grpc_port"
+	grpcPortDefault          = 55554
+	clusterFileFlag          = "cluster_file"
+	clusterFileDefault       = "dev/clusters.yaml"
+	syncIntervalHrsFlag      = "sync_interval_hrs"
+	syncIntervalHoursDefault = 24
 )
 
 var appConfig *AppConfig //nolint:gochecknoglobals // using a global to avoid passing large config struct around
@@ -32,6 +34,8 @@ type AppConfig struct {
 	// AuthInfo *rpc.AuthInfo `mapstructure:"auth_info"`
 	// cluster file
 	ClusterFile string `mapstructure:"cluster_file"`
+	// sync interval in hours for SyncAllResources
+	SyncIntervalHrs int `mapstructure:"sync_interval_hrs"`
 }
 
 func Parse(cmd *cobra.Command) error {
@@ -75,6 +79,8 @@ func setViperDefaults() {
 	viper.SetDefault(grpcPortFlag, grpcPortDefault)
 	mustBindEnv(clusterFileFlag)
 	viper.SetDefault(clusterFileFlag, clusterFileDefault)
+	mustBindEnv(syncIntervalHrsFlag)
+	viper.SetDefault(syncIntervalHrsFlag, syncIntervalHoursDefault)
 
 	// Bind more env vars here.
 }

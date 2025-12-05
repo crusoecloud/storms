@@ -1,3 +1,4 @@
 grpc_port: 9290
 local_ip: 127.0.0.1
 cluster_file: dev/clusters.yaml
+sync_interval_hours: 24

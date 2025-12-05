@@ -6,9 +6,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/rs/zerolog/log"
 
+	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
 	"gitlab.com/crusoeenergy/island/storage/storms/storms/internal/app/configs"
 	"gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service"
 )
@@ -32,6 +34,26 @@ func (a *App) Start(ctx context.Context) error {
 	if err := a.svc.Start(); err != nil {
 		return fmt.Errorf("failed to start app service: %w", err)
 	}
+
+	// Start periodic syncing
+	go func() {
+		syncInterval := time.Duration(a.cfg.SyncIntervalHrs) * time.Hour
+		ticker := time.NewTicker(syncInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				log.Info().Msg("Performing periodic sync")
+				_, err := a.svc.SyncAllResources(ctx, &storms.SyncAllResourcesRequest{})
+				if err != nil {
+					log.Error().Err(err).Msg("failed to sync all resources")
+				}
+			}
+		}
+	}()
 
 	<-ctx.Done() // Blocking call so application continues to serve.
 
