@@ -1,5 +1,9 @@
 package krusoe
 
+import (
+	"time"
+)
+
 type Volume struct {
 	name          string
 	id            string
@@ -7,6 +11,7 @@ type Volume struct {
 	sectorSize    uint
 	acl           []string
 	srcSnapshotID string
+	CreatedAt     time.Time
 }
 
 type Snapshot struct {
@@ -15,4 +20,5 @@ type Snapshot struct {
 	size           uint
 	sectorSize     uint
 	sourceVolumeID string
+	createdAt      time.Time
 }

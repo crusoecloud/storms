@@ -4,11 +4,13 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
 	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -328,6 +330,7 @@ func Test_DetachVolume(t *testing.T) {
 }
 
 func Test_GetSnapshot(t *testing.T) {
+	expectedTime := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
 	snapshotUUID := "4533ae7a-ef23-43c5-8e94-68dfcd5bedd6"
 	sourceVolumeUUID := "cc23f964-d2d3-40af-a6f5-82b1e0574c93"
 	vendorShapshotID := "6f04092b-e9f9-4dc3-9ad1-4b07385826c3"
@@ -351,6 +354,7 @@ func Test_GetSnapshot(t *testing.T) {
 					SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 					IsAvailable:      true,
 					SourceVolumeUuid: sourceVolumeUUID,
+					CreatedAt:        timestamppb.New(expectedTime),
 				},
 			},
 			expectErr: false,
@@ -368,6 +372,7 @@ func Test_GetSnapshot(t *testing.T) {
 					SectorSize:       sectorSize512,
 					SourceVolumeUUID: sourceVolumeUUID,
 					IsAvailable:      true,
+					CreatedAt:        expectedTime,
 				},
 			}, nil
 		},
@@ -387,10 +392,14 @@ func Test_GetSnapshot(t *testing.T) {
 		require.True(t, res.Snapshot.IsAvailable)
 		require.Equal(t, res.Snapshot.Uuid, snapshotUUID)
 		require.Equal(t, tt.expect.Snapshot.VendorSnapshotId, res.Snapshot.VendorSnapshotId)
+		require.NotNil(t, res.Snapshot.CreatedAt)
+		require.Equal(t, expectedTime, res.Snapshot.CreatedAt.AsTime())
 	}
 }
 
 func Test_GetSnapshots(t *testing.T) {
+	expectedTime := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
+
 	tests := []struct {
 		name           string
 		input          *storms.GetSnapshotsRequest
@@ -409,6 +418,7 @@ func Test_GetSnapshots(t *testing.T) {
 						SectorSize:       sectorSize512,
 						IsAvailable:      true,
 						SourceVolumeUUID: uuid.NewString(),
+						CreatedAt:        expectedTime,
 					},
 				},
 			},
@@ -427,6 +437,7 @@ func Test_GetSnapshots(t *testing.T) {
 						SectorSize:       sectorSize512,
 						IsAvailable:      true,
 						SourceVolumeUUID: uuid.NewString(),
+						CreatedAt:        expectedTime,
 					},
 					{
 						UUID:             uuid.NewString(),
@@ -435,6 +446,7 @@ func Test_GetSnapshots(t *testing.T) {
 						SectorSize:       sectorSize4096,
 						IsAvailable:      false,
 						SourceVolumeUUID: uuid.NewString(),
+						CreatedAt:        expectedTime,
 					},
 				},
 			},
@@ -466,6 +478,8 @@ func Test_GetSnapshots(t *testing.T) {
 				require.Equal(t, tt.clientResponse.Snapshots[i].Size, resp.Snapshots[i].Size)
 				require.Equal(t, tt.clientResponse.Snapshots[i].IsAvailable, resp.Snapshots[i].IsAvailable)
 				require.Equal(t, tt.clientResponse.Snapshots[i].SourceVolumeUUID, resp.Snapshots[i].SourceVolumeUuid)
+				require.NotNil(t, resp.Snapshots[i].CreatedAt)
+				require.Equal(t, expectedTime, resp.Snapshots[i].CreatedAt.AsTime())
 			}
 		})
 
@@ -473,6 +487,7 @@ func Test_GetSnapshots(t *testing.T) {
 }
 
 func Test_GetVolume(t *testing.T) {
+	expectedTime := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
 
 	tests := []struct {
 		name      string
@@ -496,6 +511,7 @@ func Test_GetVolume(t *testing.T) {
 					},
 					IsAvailable:        true,
 					SourceSnapshotUuid: "c4599262-6e64-4597-8834-d790dab7be35",
+					CreatedAt:          timestamppb.New(expectedTime),
 				},
 			},
 			expectErr: false,
@@ -518,6 +534,7 @@ func Test_GetVolume(t *testing.T) {
 						},
 						IsAvailable:        true,
 						SourceSnapshotUUID: "c4599262-6e64-4597-8834-d790dab7be35",
+						CreatedAt:          expectedTime,
 					},
 				}, nil
 			default:
@@ -537,10 +554,14 @@ func Test_GetVolume(t *testing.T) {
 		require.NotNil(t, res)
 
 		require.Equal(t, tt.expect.Volume, res.Volume)
+		require.NotNil(t, res.Volume.CreatedAt)
+		require.Equal(t, expectedTime, res.Volume.CreatedAt.AsTime())
 	}
 }
 
 func Test_GetVolumes(t *testing.T) {
+	expectedTime := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
+
 	tests := []struct {
 		name           string
 		input          *storms.GetVolumesRequest
@@ -560,6 +581,7 @@ func Test_GetVolumes(t *testing.T) {
 						ACL:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUUID: "",
+						CreatedAt:          expectedTime,
 					},
 				},
 			},
@@ -579,6 +601,7 @@ func Test_GetVolumes(t *testing.T) {
 						ACL:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUUID: "",
+						CreatedAt:          expectedTime,
 					},
 					{
 						UUID:               uuid.NewString(),
@@ -588,6 +611,7 @@ func Test_GetVolumes(t *testing.T) {
 						ACL:                []string{uuid.NewString()},
 						IsAvailable:        false,
 						SourceSnapshotUUID: uuid.NewString(),
+						CreatedAt:          expectedTime,
 					},
 				},
 			},
@@ -622,6 +646,8 @@ func Test_GetVolumes(t *testing.T) {
 				require.Equal(t, tt.clientResponse.Volumes[i].Size, resp.Volumes[i].Size)
 				require.Equal(t, tt.clientResponse.Volumes[i].IsAvailable, resp.Volumes[i].IsAvailable)
 				require.Equal(t, tt.clientResponse.Volumes[i].SourceSnapshotUUID, resp.Volumes[i].SourceSnapshotUuid)
+				require.NotNil(t, resp.Volumes[i].CreatedAt)
+				require.Equal(t, expectedTime, resp.Volumes[i].CreatedAt.AsTime())
 			}
 		},
 		)

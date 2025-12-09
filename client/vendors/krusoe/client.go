@@ -46,6 +46,7 @@ func (c *Client) GetVolume(_ context.Context, req *models.GetVolumeRequest) (*mo
 			ACL:                v.acl,
 			IsAvailable:        true,
 			SourceSnapshotUUID: v.srcSnapshotID,
+			CreatedAt:          v.CreatedAt,
 		},
 	}, nil
 }
@@ -73,6 +74,7 @@ func (c *Client) GetVolumes(_ context.Context, _ *models.GetVolumesRequest) (*mo
 			ACL:                v.acl,
 			IsAvailable:        true,
 			SourceSnapshotUUID: v.srcSnapshotID,
+			CreatedAt:          v.CreatedAt,
 		}
 	})
 
@@ -118,6 +120,7 @@ func (c *Client) CreateVolume(_ context.Context, req *models.CreateVolumeRequest
 		ACL:                v.acl,
 		IsAvailable:        true,
 		SourceSnapshotUUID: v.srcSnapshotID,
+		CreatedAt:          v.CreatedAt,
 	}
 
 	return &models.CreateVolumeResponse{
@@ -183,6 +186,7 @@ func (c *Client) GetSnapshot(_ context.Context, req *models.GetSnapshotRequest) 
 		Size:             uint64(s.size),
 		IsAvailable:      true,
 		SourceVolumeUUID: s.sourceVolumeID,
+		CreatedAt:        s.createdAt,
 	}
 
 	return &models.GetSnapshotResponse{
@@ -212,6 +216,7 @@ func (c *Client) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRequest) 
 			SectorSize:       sectorSize,
 			IsAvailable:      true,
 			SourceVolumeUUID: s.sourceVolumeID,
+			CreatedAt:        s.createdAt,
 		}
 	})
 
@@ -243,6 +248,7 @@ func (c *Client) CreateSnapshot(_ context.Context, req *models.CreateSnapshotReq
 		SectorSize:       sectorSize,
 		IsAvailable:      true,
 		SourceVolumeUUID: req.SourceVolumeUUID,
+		CreatedAt:        v.createdAt,
 	}
 
 	return &models.CreateSnapshotResponse{

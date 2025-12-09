@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/samber/lo"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	"gitlab.com/crusoeenergy/island/storage/storms/client"
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
@@ -180,6 +181,11 @@ func (ct *ClientTranslator) GetSnapshot(ctx context.Context, c client.Client, re
 
 	sectorSizeEnum := translateUint32ToSectorSizeEnum(snapshot.SectorSize)
 
+	var createdAt *timestamppb.Timestamp
+	if !snapshot.CreatedAt.IsZero() {
+		createdAt = timestamppb.New(snapshot.CreatedAt)
+	}
+
 	return &storms.GetSnapshotResponse{
 		Snapshot: &storms.Snapshot{
 			Uuid:             snapshot.UUID,
@@ -188,10 +194,12 @@ func (ct *ClientTranslator) GetSnapshot(ctx context.Context, c client.Client, re
 			SectorSize:       sectorSizeEnum,
 			IsAvailable:      snapshot.IsAvailable,
 			SourceVolumeUuid: snapshot.SourceVolumeUUID,
+			CreatedAt:        createdAt,
 		},
 	}, nil
 }
 
+//nolint:dupl // Similar mapping logic to GetVolumes but for different types
 func (ct *ClientTranslator) GetSnapshots(ctx context.Context, c client.Client, _ *storms.GetSnapshotsRequest,
 ) (*storms.GetSnapshotsResponse, error) {
 	translatedReq := &models.GetSnapshotsRequest{}
@@ -205,6 +213,11 @@ func (ct *ClientTranslator) GetSnapshots(ctx context.Context, c client.Client, _
 		func(s *models.Snapshot, _ int) *storms.Snapshot {
 			sectorSizeEnum := translateUint32ToSectorSizeEnum(s.SectorSize)
 
+			var createdAt *timestamppb.Timestamp
+			if !s.CreatedAt.IsZero() {
+				createdAt = timestamppb.New(s.CreatedAt)
+			}
+
 			return &storms.Snapshot{
 				Uuid:             s.UUID,
 				VendorSnapshotId: s.VendorSnapshotID,
@@ -212,6 +225,7 @@ func (ct *ClientTranslator) GetSnapshots(ctx context.Context, c client.Client, _
 				SectorSize:       sectorSizeEnum,
 				IsAvailable:      s.IsAvailable,
 				SourceVolumeUuid: s.SourceVolumeUUID,
+				CreatedAt:        createdAt,
 			}
 		})
 
@@ -237,6 +251,11 @@ func (ct *ClientTranslator) GetVolume(ctx context.Context, c client.Client, req 
 
 	sectorSizeEnum := translateUint32ToSectorSizeEnum(vol.SectorSize)
 
+	var createdAt *timestamppb.Timestamp
+	if !vol.CreatedAt.IsZero() {
+		createdAt = timestamppb.New(vol.CreatedAt)
+	}
+
 	resp := &storms.GetVolumeResponse{
 		Volume: &storms.Volume{
 			Uuid:               vol.UUID,
@@ -246,12 +265,14 @@ func (ct *ClientTranslator) GetVolume(ctx context.Context, c client.Client, req 
 			Acl:                vol.ACL,
 			IsAvailable:        vol.IsAvailable,
 			SourceSnapshotUuid: vol.SourceSnapshotUUID,
+			CreatedAt:          createdAt,
 		},
 	}
 
 	return resp, nil
 }
 
+//nolint:dupl // Similar mapping logic to GetSnapshots but for different types
 func (ct *ClientTranslator) GetVolumes(ctx context.Context, c client.Client, _ *storms.GetVolumesRequest,
 ) (*storms.GetVolumesResponse, error) {
 	translatedReq := &models.GetVolumesRequest{}
@@ -263,6 +284,11 @@ func (ct *ClientTranslator) GetVolumes(ctx context.Context, c client.Client, _ *
 	vs := lo.Map[*models.Volume, *storms.Volume](volumes.Volumes, func(v *models.Volume, _ int) *storms.Volume {
 		sectorSizeEnum := translateUint32ToSectorSizeEnum(v.SectorSize)
 
+		var createdAt *timestamppb.Timestamp
+		if !v.CreatedAt.IsZero() {
+			createdAt = timestamppb.New(v.CreatedAt)
+		}
+
 		return &storms.Volume{
 			Uuid:               v.UUID,
 			VendorVolumeId:     v.VendorVolumeID,
@@ -270,6 +296,7 @@ func (ct *ClientTranslator) GetVolumes(ctx context.Context, c client.Client, _ *
 			SectorSize:         sectorSizeEnum,
 			IsAvailable:        v.IsAvailable,
 			SourceSnapshotUuid: v.SourceSnapshotUUID,
+			CreatedAt:          createdAt,
 		}
 	})
 

@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
@@ -12,6 +13,7 @@ import (
 	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
 	resource "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/resource"
 	"gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/testutil"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 const (
@@ -23,6 +25,7 @@ const (
 func Test_GetVolume(t *testing.T) {
 	clusterID := uuid.NewString()
 	mockClient := &testutil.MockClient{}
+	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
 	s := &Service{
 		clusterManager: &testutil.MockClusterManager{
 			MockGet: func(clusterID string) (client.Client, error) {
@@ -45,6 +48,7 @@ func Test_GetVolume(t *testing.T) {
 						Acl:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUuid: "",
+						CreatedAt:          expectedTime,
 					},
 				}, nil
 			},
@@ -60,6 +64,8 @@ func Test_GetVolume(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, resp.Volume.Uuid, volID)
+	require.NotNil(t, resp.Volume.CreatedAt)
+	require.Equal(t, expectedTime.AsTime(), resp.Volume.CreatedAt.AsTime())
 }
 
 func Test_GetVolumes(t *testing.T) {
@@ -69,6 +75,7 @@ func Test_GetVolumes(t *testing.T) {
 	mockClient2 := &testutil.MockClient{}
 	resourceID1 := uuid.NewString()
 	resourceID2 := uuid.NewString()
+	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
 
 	s := &Service{
 		clusterManager: &testutil.MockClusterManager{
@@ -112,6 +119,7 @@ func Test_GetVolumes(t *testing.T) {
 								Acl:                []string{},
 								IsAvailable:        true,
 								SourceSnapshotUuid: "",
+								CreatedAt:          expectedTime,
 							},
 						},
 					}, nil
@@ -125,6 +133,7 @@ func Test_GetVolumes(t *testing.T) {
 								Acl:                []string{},
 								IsAvailable:        true,
 								SourceSnapshotUuid: "",
+								CreatedAt:          expectedTime,
 							},
 						},
 					}, nil
@@ -139,6 +148,10 @@ func Test_GetVolumes(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, resp.Volumes, 2)
+	for _, v := range resp.Volumes {
+		require.NotNil(t, v.CreatedAt)
+		require.Equal(t, expectedTime.AsTime(), v.CreatedAt.AsTime())
+	}
 }
 
 func Test_CreateVolume(t *testing.T) {
@@ -343,6 +356,7 @@ func Test_DetachVolume(t *testing.T) {
 func Test_GetSnapshot(t *testing.T) {
 	clusterID := uuid.NewString()
 	mockClient := &testutil.MockClient{}
+	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
 	s := &Service{
 		clusterManager: &testutil.MockClusterManager{
 			MockGet: func(clusterID string) (client.Client, error) {
@@ -364,6 +378,7 @@ func Test_GetSnapshot(t *testing.T) {
 						SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 						IsAvailable:      true,
 						SourceVolumeUuid: uuid.NewString(),
+						CreatedAt:        expectedTime,
 					},
 				}, nil
 			},
@@ -379,6 +394,8 @@ func Test_GetSnapshot(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Equal(t, resp.Snapshot.Uuid, snapshotID)
+	require.NotNil(t, resp.Snapshot.CreatedAt)
+	require.Equal(t, expectedTime.AsTime(), resp.Snapshot.CreatedAt.AsTime())
 
 }
 
@@ -389,6 +406,7 @@ func Test_GetSnapshots(t *testing.T) {
 	mockClient2 := &testutil.MockClient{}
 	resourceID1 := uuid.NewString()
 	resourceID2 := uuid.NewString()
+	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
 
 	s := &Service{
 		clusterManager: &testutil.MockClusterManager{
@@ -430,6 +448,7 @@ func Test_GetSnapshots(t *testing.T) {
 								SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 								IsAvailable:      true,
 								SourceVolumeUuid: uuid.NewString(),
+								CreatedAt:        expectedTime,
 							},
 						},
 					}, nil
@@ -442,6 +461,7 @@ func Test_GetSnapshots(t *testing.T) {
 								SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 								IsAvailable:      true,
 								SourceVolumeUuid: uuid.NewString(),
+								CreatedAt:        expectedTime,
 							},
 						},
 					}, nil
@@ -457,6 +477,10 @@ func Test_GetSnapshots(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp)
 	require.Len(t, resp.Snapshots, 2)
+	for _, s := range resp.Snapshots {
+		require.NotNil(t, s.CreatedAt)
+		require.Equal(t, expectedTime.AsTime(), s.CreatedAt.AsTime())
+	}
 
 }
 
@@ -535,6 +559,8 @@ func Test_SyncResource(t *testing.T) {
 	client2 := &testutil.MockClient{}
 	resourceID1 := uuid.NewString()
 	resourceID2 := uuid.NewString()
+	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
+
 	s := &Service{
 		clusterManager: &testutil.MockClusterManager{
 			MockGet: func(clusterID string) (client.Client, error) {
@@ -572,6 +598,7 @@ func Test_SyncResource(t *testing.T) {
 						Acl:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUuid: "",
+						CreatedAt:          expectedTime,
 					},
 				}, nil
 			},
@@ -584,6 +611,7 @@ func Test_SyncResource(t *testing.T) {
 						SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 						IsAvailable:      true,
 						SourceVolumeUuid: uuid.NewString(),
+						CreatedAt:        expectedTime,
 					},
 				}, nil
 			},
@@ -644,6 +672,7 @@ func Test_SyncResource(t *testing.T) {
 func Test_SyncAllResources(t *testing.T) {
 	resourceID1 := uuid.NewString()
 	clusterID1 := uuid.NewString()
+	expectedTime := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
 	client1 := &testutil.MockClient{
 		MockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
 			return &models.GetVolumesResponse{
@@ -656,6 +685,7 @@ func Test_SyncAllResources(t *testing.T) {
 						ACL:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUUID: "",
+						CreatedAt:          expectedTime,
 					},
 				},
 			}, nil
@@ -684,6 +714,7 @@ func Test_SyncAllResources(t *testing.T) {
 						SectorSize:       sectorSize4096,
 						IsAvailable:      true,
 						SourceVolumeUUID: uuid.NewString(),
+						CreatedAt:        expectedTime,
 					},
 				},
 			}, nil

@@ -3,6 +3,7 @@ package krusoe
 import (
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/samber/lo"
@@ -65,6 +66,7 @@ func (b *backend) createNewVolume(apiKey, name string, size, sectorSize uint) (*
 		size:       size,
 		sectorSize: sectorSize,
 		acl:        []string{},
+		CreatedAt:  time.Now(),
 	}
 
 	b.volumes[v.name] = v
@@ -88,6 +90,7 @@ func (b *backend) createVolumeFromSnapshot(apiKey, name, srcSnapshotName string)
 		size:       s.size,
 		sectorSize: s.sectorSize,
 		acl:        []string{},
+		CreatedAt:  time.Now(),
 	}
 
 	b.volumes[v.name] = v
@@ -203,6 +206,7 @@ func (b *backend) createSnapshot(apiKey, name, sourceVolumeID string) (*Snapshot
 		size:           v.size,
 		sectorSize:     v.sectorSize,
 		sourceVolumeID: sourceVolumeID,
+		createdAt:      time.Now(),
 	}
 
 	b.snapshots[s.name] = s
