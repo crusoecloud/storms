@@ -1085,6 +1085,11 @@ func (c *Client) parseVolumesResponse(response map[string]interface{}) ([]*model
 			sourceSnapshotUUID = pureVol.Source.Name
 		}
 
+		var createdAt time.Time
+		if pureVol.Created != 0 {
+			createdAt = time.Unix(0, int64(pureVol.Created)*int64(time.Millisecond))
+		}
+
 		volumes[i] = &models.Volume{
 			UUID:               pureVol.Name, // FlashArray uses volume name as identifier
 			Size:               pureVol.Provisioned,
@@ -1092,6 +1097,7 @@ func (c *Client) parseVolumesResponse(response map[string]interface{}) ([]*model
 			ACL:                []string{},
 			IsAvailable:        true, // Assume volumes are available
 			SourceSnapshotUUID: sourceSnapshotUUID,
+			CreatedAt:          createdAt,
 		}
 	}
 
@@ -1120,12 +1126,18 @@ func (c *Client) parseCreateSnapshotResponse(response map[string]interface{}) (*
 	// log snapshot
 	log.Info().Msgf("pure snapshot: %+v", pureSnap)
 
+	var createdAt time.Time
+	if pureSnap.Created != 0 {
+		createdAt = time.Unix(0, int64(pureSnap.Created)*int64(time.Millisecond))
+	}
+
 	return &models.Snapshot{
 		UUID:             pureSnap.Name, // FlashArray uses snapshot name as identifier
 		Size:             pureSnap.Provisioned,
 		SectorSize:       0, // Inherited from source volume, not returned in snapshot response
 		IsAvailable:      true,
 		SourceVolumeUUID: pureSnap.Source.Name,
+		CreatedAt:        createdAt,
 	}, nil
 }
 
@@ -1171,12 +1183,18 @@ func (c *Client) parseGetSnapshotResponse(response map[string]interface{}) (*mod
 		return nil, fmt.Errorf("failed to parse snapshot response: source volume UUID is empty")
 	}
 
+	var createdAt time.Time
+	if pureSnap.Created != 0 {
+		createdAt = time.Unix(0, int64(pureSnap.Created)*int64(time.Millisecond))
+	}
+
 	return &models.Snapshot{
 		UUID:             snapshotUUID,
 		Size:             pureSnap.Provisioned,
 		SectorSize:       0, // Inherited from source volume, not returned in snapshot response
 		IsAvailable:      true,
 		SourceVolumeUUID: sourceVolumeUUID,
+		CreatedAt:        createdAt,
 	}, nil
 }
 
@@ -1208,12 +1226,18 @@ func (c *Client) parseGetSnapshotsResponse(response map[string]interface{}) ([]*
 			sourceVolumeUUID = pureSnap.Name[0:idx]
 		}
 
+		var createdAt time.Time
+		if pureSnap.Created != 0 {
+			createdAt = time.Unix(0, int64(pureSnap.Created)*int64(time.Millisecond))
+		}
+
 		snapshots[i] = &models.Snapshot{
 			UUID:             pureSnap.Suffix,
 			Size:             pureSnap.Provisioned,
 			SectorSize:       0, // Inherited from source volume, not returned in snapshot response
 			IsAvailable:      true,
 			SourceVolumeUUID: sourceVolumeUUID,
+			CreatedAt:        createdAt,
 		}
 	}
 

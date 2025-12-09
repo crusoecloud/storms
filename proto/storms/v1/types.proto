@@ -2,6 +2,7 @@ syntax = "proto3";
 
 import "validate/validate.proto";
 import "common/field_option/field_option.proto";
+import "google/protobuf/timestamp.proto";
 
 // Go code will be generated in this package.
 option go_package = "gitlab.com/crusoeenergy/island/storage/storms/storms/pkg/api/gen/go/storms/v1;stormspb";
@@ -43,6 +44,9 @@ message Volume {
 
     // optional 
     string source_snapshot_uuid = 7 [(validate.rules).string.uuid = true];
+
+    // when the volume was created
+    optional google.protobuf.Timestamp created_at = 8 [(common.field_option.sensitive) = "false"];
 }
 
 // Block storage Snapshot 
@@ -64,6 +68,9 @@ message Snapshot {
 
     // source volume uuid 
     string source_volume_uuid = 6 [(validate.rules).string.uuid = true];
+
+    // when the snapshot was created
+    optional google.protobuf.Timestamp created_at = 7 [(common.field_option.sensitive) = "false"];
 }
 
 

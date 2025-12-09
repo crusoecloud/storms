@@ -5,17 +5,26 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	admin "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/admin/v1"
 	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
 )
 
+const (
+	RFC3339 = "2006-01-02T15:04:05Z07:00"
+)
+
 func RenderVolumes(volumes []*storms.Volume) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"ID", "Size", "Sector size", "ACL", "Available", "VendorVolumeID"})
+	table.Header([]string{"ID", "Size (bytes)", "Sector size", "ACLs", "Available", "VendorVolumeID", "CreatedAt"})
 
 	for _, v := range volumes {
+		createdAt := "N/A"
+		if v.CreatedAt != nil {
+			createdAt = v.CreatedAt.AsTime().Format(time.RFC3339)
+		}
 		if err := table.Append([]string{
 			v.Uuid,
 			formatBytes(v.Size),
@@ -23,6 +32,7 @@ func RenderVolumes(volumes []*storms.Volume) error {
 			strings.Join(v.Acl, ","),
 			strconv.FormatBool(v.IsAvailable),
 			v.GetVendorVolumeId(),
+			createdAt,
 		}); err != nil {
 			return fmt.Errorf("failed to append volume entry to table: %w", err)
 		}
@@ -37,16 +47,21 @@ func RenderVolumes(volumes []*storms.Volume) error {
 
 func RenderSnapshots(snapshots []*storms.Snapshot) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"ID", "Size", "Sector size", "SrcVolID", "Available", "VendorSnapshotID"})
+	table.Header([]string{"ID", "Size (bytes)", "Sector size", "SrcVolID", "Available", "VendorSnapshotID", "CreatedAt"})
 
-	for _, s := range snapshots {
+	for _, v := range snapshots {
+		createdAt := "N/A"
+		if v.CreatedAt != nil {
+			createdAt = v.CreatedAt.AsTime().Format(time.RFC3339)
+		}
 		if err := table.Append([]string{
-			s.Uuid,
-			formatBytes(s.Size),
-			formatSectorSize(s.SectorSize),
-			s.SourceVolumeUuid,
-			strconv.FormatBool(s.IsAvailable),
-			s.GetVendorSnapshotId(),
+			v.Uuid,
+			fmt.Sprintf("%d bytes", v.Size),
+			storms.SectorSizeEnum_name[int32(v.SectorSize)],
+			v.SourceVolumeUuid,
+			strconv.FormatBool(v.IsAvailable),
+			v.GetVendorSnapshotId(),
+			createdAt,
 		}); err != nil {
 			return fmt.Errorf("failed to append snapshot entry to table: %w", err)
 		}
@@ -103,6 +118,7 @@ func formatBytes(b uint64) string {
 }
 
 func formatSectorSize(enum storms.SectorSizeEnum) string {
+	//nolint:exhaustive // default case handles unspecified
 	switch enum {
 	case storms.SectorSizeEnum_SECTOR_SIZE_ENUM_4096:
 		return "4096 B"

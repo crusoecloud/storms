@@ -4,15 +4,19 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
 	testutil "gitlab.com/crusoeenergy/island/storage/storms/stormscli/cmd/testutil"
 	"gitlab.com/crusoeenergy/island/storage/storms/stormscli/cmd/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_NewGetSnapshotCmd(t *testing.T) {
+	expectedTime := time.Date(2025, 11, 20, 14, 45, 0, 0, time.UTC)
+
 	tests := []struct {
 		name      string
 		args      []string
@@ -43,6 +47,7 @@ func Test_NewGetSnapshotCmd(t *testing.T) {
 						SectorSize:       512,
 						IsAvailable:      true,
 						SourceVolumeUuid: "1f2ea4fe-d8dd-4469-972b-81d166fd2084",
+						CreatedAt:        timestamppb.New(expectedTime),
 					},
 				}, nil
 			},
@@ -66,6 +71,15 @@ func Test_NewGetSnapshotCmd(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+
+			client, closer, err := mockClientProvider(context.Background())
+			require.NoError(t, err)
+			defer closer.Close()
+
+			resp, err := client.GetSnapshot(context.Background(), &storms.GetSnapshotRequest{Uuid: "4141c8b6-9a6d-47ff-9bba-e047d131c9a6"})
+			require.NoError(t, err)
+			require.NotNil(t, resp.Snapshot.CreatedAt)
+			require.Equal(t, expectedTime, resp.Snapshot.CreatedAt.AsTime())
 		})
 	}
 }

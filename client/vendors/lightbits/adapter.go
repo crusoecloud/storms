@@ -60,6 +60,7 @@ func (a *ClientAdapter) GetVolume(_ context.Context, req *models.GetVolumeReques
 			ACL:                lbResp.ACL.Values,
 			IsAvailable:        volumeStateToIsAvail(lbResp.State),
 			SourceSnapshotUUID: lbResp.SourceSnapshotName,
+			CreatedAt:          lbResp.CreationTime,
 		},
 	}, nil
 }
@@ -94,6 +95,7 @@ func (a *ClientAdapter) GetVolumes(_ context.Context, _ *models.GetVolumesReques
 			ACL:                v.ACL.Values,
 			IsAvailable:        volumeStateToIsAvail(v.State),
 			SourceSnapshotUUID: v.SourceSnapshotName,
+			CreatedAt:          v.CreationTime,
 		}
 	})
 
@@ -194,6 +196,7 @@ func translateLBVolToGenericVolHelper(vol *Volume) (*models.Volume, error) {
 		ACL:                vol.ACL.Values,
 		IsAvailable:        volumeStateToIsAvail(vol.State),
 		SourceSnapshotUUID: vol.SourceSnapshotName,
+		CreatedAt:          vol.CreationTime,
 	}, nil
 }
 
@@ -315,6 +318,7 @@ func (a *ClientAdapter) GetSnapshot(_ context.Context, req *models.GetSnapshotRe
 			SectorSize:       sectorSz,
 			IsAvailable:      snapshotStateToIsAvail(lbResp.State),
 			SourceVolumeUUID: lbResp.SourceVolumeName,
+			CreatedAt:        lbResp.CreationTime,
 		},
 	}
 
@@ -350,6 +354,7 @@ func (a *ClientAdapter) GetSnapshots(_ context.Context, _ *models.GetSnapshotsRe
 			SectorSize:       sectorSz,
 			IsAvailable:      snapshotStateToIsAvail(s.State),
 			SourceVolumeUUID: s.SourceVolumeName,
+			CreatedAt:        s.CreationTime,
 		}
 	})
 

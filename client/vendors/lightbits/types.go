@@ -66,6 +66,7 @@ type Volume struct {
 	ProjectName        string `json:"projectName"`
 	SourceSnapshotUUID string `json:"sourceSnapshotUUID"`
 	SourceSnapshotName string `json:"sourceSnapshotName"`
+	CreationTime       time.Time `json:"creationTime"`
 }
 
 type SnapshotState string

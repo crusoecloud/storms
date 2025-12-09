@@ -4,15 +4,20 @@ import (
 	"context"
 	"io"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
 	testutil "gitlab.com/crusoeenergy/island/storage/storms/stormscli/cmd/testutil"
 	"gitlab.com/crusoeenergy/island/storage/storms/stormscli/cmd/utils"
 	"google.golang.org/grpc"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 func Test_NewListSnapshotsCmd(t *testing.T) {
+	expectedTime1 := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
+	expectedTime2 := time.Date(2025, 11, 20, 14, 45, 0, 0, time.UTC)
+
 	tests := []struct {
 		name      string
 		args      []string
@@ -51,6 +56,7 @@ func Test_NewListSnapshotsCmd(t *testing.T) {
 						SectorSize:       512,
 						IsAvailable:      true,
 						SourceVolumeUuid: "1f2ea4fe-d8dd-4469-972b-81d166fd2084",
+						CreatedAt:        timestamppb.New(expectedTime1),
 					},
 				}, nil
 			},
@@ -63,6 +69,7 @@ func Test_NewListSnapshotsCmd(t *testing.T) {
 							SectorSize:       512,
 							IsAvailable:      true,
 							SourceVolumeUuid: "1f2ea4fe-d8dd-4469-972b-81d166fd2084",
+							CreatedAt:        timestamppb.New(expectedTime1),
 						},
 						{
 							Uuid:             "798123a5-dc8c-4837-b744-54e4e63ebe56",
@@ -70,6 +77,7 @@ func Test_NewListSnapshotsCmd(t *testing.T) {
 							SectorSize:       512,
 							IsAvailable:      true,
 							SourceVolumeUuid: "1f2ea4fe-d8dd-4469-972b-81d166fd2084",
+							CreatedAt:        timestamppb.New(expectedTime2),
 						},
 					},
 				}, nil
@@ -94,6 +102,25 @@ func Test_NewListSnapshotsCmd(t *testing.T) {
 			}
 
 			require.NoError(t, err)
+
+			client, closer, err := mockClientProvider(context.Background())
+			require.NoError(t, err)
+			defer closer.Close()
+
+			if len(tt.args) > 0 {
+				resp, err := client.GetSnapshot(context.Background(), &storms.GetSnapshotRequest{})
+				require.NoError(t, err)
+				require.NotNil(t, resp.Snapshot.CreatedAt)
+				require.Equal(t, expectedTime1, resp.Snapshot.CreatedAt.AsTime())
+			} else {
+				resp, err := client.GetSnapshots(context.Background(), &storms.GetSnapshotsRequest{})
+				require.NoError(t, err)
+				require.Len(t, resp.Snapshots, 2)
+				require.NotNil(t, resp.Snapshots[0].CreatedAt)
+				require.Equal(t, expectedTime1, resp.Snapshots[0].CreatedAt.AsTime())
+				require.NotNil(t, resp.Snapshots[1].CreatedAt)
+				require.Equal(t, expectedTime2, resp.Snapshots[1].CreatedAt.AsTime())
+			}
 		})
 	}
 }

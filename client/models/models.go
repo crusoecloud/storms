@@ -1,5 +1,9 @@
 package models
 
+import (
+	"time"
+)
+
 // --- Begin resources
 
 type Volume struct {
@@ -10,6 +14,7 @@ type Volume struct {
 	ACL                []string
 	IsAvailable        bool
 	SourceSnapshotUUID string
+	CreatedAt          time.Time
 }
 
 type Snapshot struct {
@@ -19,6 +24,7 @@ type Snapshot struct {
 	SectorSize       uint32
 	IsAvailable      bool
 	SourceVolumeUUID string
+	CreatedAt        time.Time
 }
 
 // --- Begin requests and responses
