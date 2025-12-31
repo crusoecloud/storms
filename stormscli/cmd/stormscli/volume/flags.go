@@ -6,4 +6,5 @@ const (
 	sectorSizeFlag    = "sector-size"
 	srcSnapshotIDFlag = "src-snapshot-id"
 	aclFlag           = "acl"
+	affinityTagsFlag  = "affinity-tags"
 )

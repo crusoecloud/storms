@@ -87,6 +87,9 @@ message CreateVolumeRequest {
      // Required - UUID of the volume
     string uuid = 1 [(validate.rules).string.uuid = true];
 
+    // Optional - cluster affinity tags to indicate cluster placement preference
+    map<string, string> affinity_tags = 2; 
+
     // The source from which to create the volume. Choose one of the following.
     oneof source {
         // Option 1: Specify details for creating a new, empty volume from scratch.

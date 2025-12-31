@@ -58,9 +58,9 @@ type clientTranslator interface {
 // ClusterManager manages the lifecycle of clients for storage clusters.
 // It is the source of truth for which clusters are currently managed.
 type clusterManager interface {
-	Set(clusterID string, client client.Client) error
+	Set(clusterID string, cluster *cluster.Cluster) error
 	Remove(clusterID string) error
-	Get(clusterID string) (client.Client, error)
+	Get(clusterID string) (*cluster.Cluster, error)
 	AllIDs() []string
 	Count() int
 }
@@ -75,13 +75,13 @@ type resourceManager interface {
 }
 
 // Allocator decides which cluster a new resource should be placed on.
-type allocator interface {
-	SelectClusterForNewResource() (string, error) // Returns clusterID
+type allocatorManager interface {
+	AllocateCluster(affinityTags map[string]string) (string, error)
 }
 
 type Service struct {
 	// Stores configuration of clusters under management
-	clusterConfigs *serviceconfigs.ClusterConfig
+	clusterConfigs *serviceconfigs.ClustersConfig
 
 	// Translates service models to client interface models.
 	clientTranslator clientTranslator
@@ -90,7 +90,7 @@ type Service struct {
 	clusterManager  clusterManager
 	resourceManager resourceManager
 	// resourceManager resourceManager
-	allocator allocator
+	allocator allocatorManager
 
 	// Components for creating gRPC server and service
 	listener net.Listener
@@ -107,7 +107,7 @@ func NewService(endpoint string) *Service {
 		clientTranslator: translator.NewClientTranslator(),
 		clusterManager:   clusterManger,
 		resourceManager:  resource.NewInMemoryManager(),
-		allocator:        alloc.NewRoundRobinAllocator(clusterManger),
+		allocator:        alloc.NewManager(clusterManger),
 	}
 
 	return s
@@ -147,20 +147,14 @@ func (s *Service) loadClusterConfigs() error {
 // Adds clients to back the clusters to be managed, specified by cluster configuration.
 // Removes any clients that are not specified in the cluster configuration.
 func (s *Service) syncClusterManager() {
-	clusters := lo.SliceToMap(
-		s.clusterConfigs.Clusters,
-		func(c serviceconfigs.Cluster) (string, *serviceconfigs.Cluster) {
-			return c.ClusterID, &c
-		})
-
-	// Set cluster-client pairings.
-	for clusterID, cluster := range clusters {
-		c, err := client.NewClient(cluster.Vendor, cluster.VendorConfig)
+	for _, c := range s.clusterConfigs.Clusters {
+		newCluster, err := cluster.NewCluster(c)
 		if err != nil {
-			log.Err(err).Str("cluster_id", clusterID).Msg("failed to create new client for cluster")
+			log.Err(err).Msg("failed to create new cluster")
 		}
 
-		err = s.clusterManager.Set(clusterID, c)
+		clusterID := newCluster.Config.ClusterID
+		err = s.clusterManager.Set(clusterID, newCluster)
 		if err != nil {
 			log.Err(err).Str("cluster_id", clusterID).Msg("failed to add client to cluster manager")
 		}
@@ -168,7 +162,9 @@ func (s *Service) syncClusterManager() {
 
 	// Remove cluster-client pairings not specified in configuration.
 	managedClusterIDs := s.clusterManager.AllIDs()
-	desiredClusterIDs := lo.Keys(clusters)
+	desiredClusterIDs := lo.Map(s.clusterConfigs.Clusters, func(cfg *cluster.Config, _ int) string {
+		return cfg.ClusterID
+	})
 	for _, managedClusterID := range managedClusterIDs {
 		if !lo.Contains(desiredClusterIDs, managedClusterID) {
 			err := s.clusterManager.Remove(managedClusterID)
@@ -229,7 +225,7 @@ func (s *Service) fetchResourcesFromCluster(clusterID string) []*resource.Resour
 	resources := make([]*resource.Resource, 0)
 
 	// Fetch volumes.
-	getVolResp, err := c.GetVolumes(ctx, &models.GetVolumesRequest{})
+	getVolResp, err := c.Client.GetVolumes(ctx, &models.GetVolumesRequest{})
 	if err != nil {
 		log.Err(err).Str("cluster_id", clusterID).Msg("failed to get volumes")
 	} else {
@@ -245,7 +241,7 @@ func (s *Service) fetchResourcesFromCluster(clusterID string) []*resource.Resour
 	}
 
 	// Fetch snapshots.
-	getSnapshotResp, err := c.GetSnapshots(ctx, &models.GetSnapshotsRequest{})
+	getSnapshotResp, err := c.Client.GetSnapshots(ctx, &models.GetSnapshotsRequest{})
 	if err != nil {
 		log.Err(err).Str("cluster_id", clusterID).Msg("failed to get snaphots")
 	} else {
@@ -295,7 +291,7 @@ func (s *Service) serve() error {
 	return nil
 }
 
-func (s *Service) getClientForResource(resourceID string) (string, client.Client, error) {
+func (s *Service) getClientForResource(resourceID string) (string, *cluster.Cluster, error) {
 	clusterID, err := s.resourceManager.GetResourceCluster(resourceID)
 	if err != nil {
 		return "", nil, fmt.Errorf("failed to get cluster for resource: %w", err)
