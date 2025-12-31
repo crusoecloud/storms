@@ -9,10 +9,15 @@ import (
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
 	"gitlab.com/crusoeenergy/island/storage/storms/client"
+	clientmocks "gitlab.com/crusoeenergy/island/storage/storms/client/mocks"
 	"gitlab.com/crusoeenergy/island/storage/storms/client/models"
 	storms "gitlab.com/crusoeenergy/island/storage/storms/pkg/api/gen/go/storms/v1"
+	allocatormocks "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/allocator/mocks"
+	"gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/cluster"
+	clustermocks "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/cluster/mocks"
 	resource "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/resource"
-	"gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/testutil"
+	resourcemocks "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/resource/mocks"
+	translatormocks "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/translator/mocks"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -22,22 +27,94 @@ const (
 	sectorSize4096         = 4096
 )
 
+var (
+	expectedTimestamp = timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
+
+	clusterID1  = uuid.NewString()
+	mockClient1 = &clientmocks.MockClient{
+		MockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
+			return &models.GetVolumesResponse{
+				Volumes: []*models.Volume{
+					{
+						UUID:               resourceID1,
+						VendorVolumeID:     resourceID1,
+						Size:               defaultOSDiskSizeBytes,
+						SectorSize:         sectorSize512,
+						ACL:                []string{},
+						IsAvailable:        true,
+						SourceSnapshotUUID: "",
+						CreatedAt:          expectedTimestamp.AsTime(),
+					},
+				},
+			}, nil
+		},
+		MockGetSnapshots: func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error) {
+			return &models.GetSnapshotsResponse{
+				Snapshots: []*models.Snapshot{},
+			}, nil
+		},
+	}
+	resourceID1  = uuid.NewString()
+	vendor1      = "vendor-a"
+	mockCluster1 = &cluster.Cluster{
+		Config: &cluster.Config{
+			Vendor:       vendor1,
+			ClusterID:    clusterID1,
+			AffinityTags: map[string]string{},
+			VendorConfig: nil,
+		},
+		Client: mockClient1,
+	}
+
+	vendor2     = "vendor-b"
+	clusterID2  = uuid.NewString()
+	mockClient2 = &clientmocks.MockClient{
+		MockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
+			return &models.GetVolumesResponse{
+				Volumes: []*models.Volume{},
+			}, nil
+		},
+		MockGetSnapshots: func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error) {
+			return &models.GetSnapshotsResponse{
+				Snapshots: []*models.Snapshot{
+					{
+						UUID:             resourceID2,
+						VendorSnapshotID: resourceID2,
+						Size:             defaultOSDiskSizeBytes,
+						SectorSize:       sectorSize4096,
+						IsAvailable:      true,
+						SourceVolumeUUID: uuid.NewString(),
+						CreatedAt:        expectedTimestamp.AsTime(),
+					},
+				},
+			}, nil
+		},
+	}
+	resourceID2  = uuid.NewString()
+	mockCluster2 = &cluster.Cluster{
+		Config: &cluster.Config{
+			Vendor:       vendor2,
+			ClusterID:    clusterID2,
+			AffinityTags: map[string]string{},
+			VendorConfig: nil,
+		},
+		Client: mockClient2,
+	}
+)
+
 func Test_GetVolume(t *testing.T) {
-	clusterID := uuid.NewString()
-	mockClient := &testutil.MockClient{}
-	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return mockClient, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
-				return clusterID, nil
+				return clusterID1, nil
 			},
 		},
-		clientTranslator: &testutil.MockClientTranslator{
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockGetVolume: func(ctx context.Context, c client.Client, req *storms.GetVolumeRequest,
 			) (*storms.GetVolumeResponse, error) {
 				return &storms.GetVolumeResponse{
@@ -48,7 +125,7 @@ func Test_GetVolume(t *testing.T) {
 						Acl:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUuid: "",
-						CreatedAt:          expectedTime,
+						CreatedAt:          expectedTimestamp,
 					},
 				}, nil
 			},
@@ -65,35 +142,27 @@ func Test_GetVolume(t *testing.T) {
 	require.NotNil(t, resp)
 	require.Equal(t, resp.Volume.Uuid, volID)
 	require.NotNil(t, resp.Volume.CreatedAt)
-	require.Equal(t, expectedTime.AsTime(), resp.Volume.CreatedAt.AsTime())
+	require.Equal(t, expectedTimestamp.AsTime(), resp.Volume.CreatedAt.AsTime())
 }
 
 func Test_GetVolumes(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	mockClient1 := &testutil.MockClient{}
-	clusterID2 := uuid.NewString()
-	mockClient2 := &testutil.MockClient{}
-	resourceID1 := uuid.NewString()
-	resourceID2 := uuid.NewString()
-	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
-
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
+		clusterManager: &clustermocks.MockClusterManager{
 			MockAllIDs: func() []string {
 				return []string{clusterID1, clusterID2}
 			},
-			MockGet: func(clusterID string) (client.Client, error) {
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
 				switch clusterID {
 				case clusterID1:
-					return mockClient1, nil
+					return mockCluster1, nil
 
 				case clusterID2:
-					return mockClient2, nil
+					return mockCluster2, nil
 				}
 				return nil, fmt.Errorf("error")
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				switch resourceID {
 				case resourceID1:
@@ -105,7 +174,7 @@ func Test_GetVolumes(t *testing.T) {
 				return "", fmt.Errorf("error")
 			},
 		},
-		clientTranslator: &testutil.MockClientTranslator{
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockGetVolumes: func(ctx context.Context, c client.Client, _ *storms.GetVolumesRequest,
 			) (*storms.GetVolumesResponse, error) {
 				switch c {
@@ -119,7 +188,7 @@ func Test_GetVolumes(t *testing.T) {
 								Acl:                []string{},
 								IsAvailable:        true,
 								SourceSnapshotUuid: "",
-								CreatedAt:          expectedTime,
+								CreatedAt:          expectedTimestamp,
 							},
 						},
 					}, nil
@@ -133,7 +202,7 @@ func Test_GetVolumes(t *testing.T) {
 								Acl:                []string{},
 								IsAvailable:        true,
 								SourceSnapshotUuid: "",
-								CreatedAt:          expectedTime,
+								CreatedAt:          expectedTimestamp,
 							},
 						},
 					}, nil
@@ -150,7 +219,7 @@ func Test_GetVolumes(t *testing.T) {
 	require.Len(t, resp.Volumes, 2)
 	for _, v := range resp.Volumes {
 		require.NotNil(t, v.CreatedAt)
-		require.Equal(t, expectedTime.AsTime(), v.CreatedAt.AsTime())
+		require.Equal(t, expectedTimestamp.AsTime(), v.CreatedAt.AsTime())
 	}
 }
 
@@ -186,27 +255,24 @@ func Test_CreateVolume(t *testing.T) {
 		},
 	}
 
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
-
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 			MockMap: func(r *resource.Resource) error { return nil },
 		},
-		allocator: &testutil.MockAllocator{
-			MockSelectClusterForNewResource: func() (string, error) {
+		allocator: &allocatormocks.MockAllocator{
+			MockAllocateCluster: func(affinityTags map[string]string) (string, error) {
 				return clusterID1, nil
 			},
 		},
-		clientTranslator: &testutil.MockClientTranslator{
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockCreateVolume: func(ctx context.Context, c client.Client, req *storms.CreateVolumeRequest,
 			) (*storms.CreateVolumeResponse, error) {
 				return &storms.CreateVolumeResponse{}, nil
@@ -230,21 +296,19 @@ func Test_CreateVolume(t *testing.T) {
 }
 
 func Test_ResizeVolume(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 		},
-		allocator: &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{
+		allocator: &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockResizeVolume: func(ctx context.Context, c client.Client, req *storms.ResizeVolumeRequest) (*storms.ResizeVolumeResponse, error) {
 				return &storms.ResizeVolumeResponse{}, nil
 			},
@@ -258,22 +322,20 @@ func Test_ResizeVolume(t *testing.T) {
 }
 
 func Test_DeleteVolume(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 			MockUnmap: func(resourceID string) error { return nil },
 		},
-		allocator: &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{
+		allocator: &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockDeleteVolume: func(ctx context.Context, c client.Client, req *storms.DeleteVolumeRequest,
 			) (*storms.DeleteVolumeResponse, error) {
 				return &storms.DeleteVolumeResponse{}, nil
@@ -290,21 +352,19 @@ func Test_DeleteVolume(t *testing.T) {
 }
 
 func Test_AttachVolume(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 		},
-		allocator: &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{
+		allocator: &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockAttachVolume: func(ctx context.Context, c client.Client, req *storms.AttachVolumeRequest,
 			) (*storms.AttachVolumeResponse, error) {
 				return &storms.AttachVolumeResponse{}, nil
@@ -323,21 +383,19 @@ func Test_AttachVolume(t *testing.T) {
 }
 
 func Test_DetachVolume(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 		},
-		allocator: &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{
+		allocator: &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockDetachVolume: func(ctx context.Context, c client.Client, req *storms.DetachVolumeRequest,
 			) (*storms.DetachVolumeResponse, error) {
 				return &storms.DetachVolumeResponse{}, nil
@@ -354,21 +412,18 @@ func Test_DetachVolume(t *testing.T) {
 }
 
 func Test_GetSnapshot(t *testing.T) {
-	clusterID := uuid.NewString()
-	mockClient := &testutil.MockClient{}
-	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return mockClient, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
-				return clusterID, nil
+				return clusterID1, nil
 			},
 		},
-		clientTranslator: &testutil.MockClientTranslator{
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockGetSnapshot: func(ctx context.Context, c client.Client, req *storms.GetSnapshotRequest,
 			) (*storms.GetSnapshotResponse, error) {
 				return &storms.GetSnapshotResponse{
@@ -378,7 +433,7 @@ func Test_GetSnapshot(t *testing.T) {
 						SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 						IsAvailable:      true,
 						SourceVolumeUuid: uuid.NewString(),
-						CreatedAt:        expectedTime,
+						CreatedAt:        expectedTimestamp,
 					},
 				}, nil
 			},
@@ -395,36 +450,28 @@ func Test_GetSnapshot(t *testing.T) {
 	require.NotNil(t, resp)
 	require.Equal(t, resp.Snapshot.Uuid, snapshotID)
 	require.NotNil(t, resp.Snapshot.CreatedAt)
-	require.Equal(t, expectedTime.AsTime(), resp.Snapshot.CreatedAt.AsTime())
+	require.Equal(t, expectedTimestamp.AsTime(), resp.Snapshot.CreatedAt.AsTime())
 
 }
 
 func Test_GetSnapshots(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	mockClient1 := &testutil.MockClient{}
-	clusterID2 := uuid.NewString()
-	mockClient2 := &testutil.MockClient{}
-	resourceID1 := uuid.NewString()
-	resourceID2 := uuid.NewString()
-	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
-
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
+		clusterManager: &clustermocks.MockClusterManager{
 			MockAllIDs: func() []string {
 				return []string{clusterID1, clusterID2}
 			},
-			MockGet: func(clusterID string) (client.Client, error) {
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
 				switch clusterID {
 				case clusterID1:
-					return mockClient1, nil
+					return mockCluster1, nil
 
 				case clusterID2:
-					return mockClient2, nil
+					return mockCluster2, nil
 				}
 				return nil, fmt.Errorf("error")
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				switch resourceID {
 				case resourceID1:
@@ -436,7 +483,7 @@ func Test_GetSnapshots(t *testing.T) {
 				return "", fmt.Errorf("error")
 			},
 		},
-		clientTranslator: &testutil.MockClientTranslator{
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockGetSnapshots: func(ctx context.Context, c client.Client, _ *storms.GetSnapshotsRequest) (*storms.GetSnapshotsResponse, error) {
 				switch c {
 				case mockClient1:
@@ -448,7 +495,7 @@ func Test_GetSnapshots(t *testing.T) {
 								SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 								IsAvailable:      true,
 								SourceVolumeUuid: uuid.NewString(),
-								CreatedAt:        expectedTime,
+								CreatedAt:        expectedTimestamp,
 							},
 						},
 					}, nil
@@ -461,7 +508,7 @@ func Test_GetSnapshots(t *testing.T) {
 								SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 								IsAvailable:      true,
 								SourceVolumeUuid: uuid.NewString(),
-								CreatedAt:        expectedTime,
+								CreatedAt:        expectedTimestamp,
 							},
 						},
 					}, nil
@@ -479,33 +526,30 @@ func Test_GetSnapshots(t *testing.T) {
 	require.Len(t, resp.Snapshots, 2)
 	for _, s := range resp.Snapshots {
 		require.NotNil(t, s.CreatedAt)
-		require.Equal(t, expectedTime.AsTime(), s.CreatedAt.AsTime())
+		require.Equal(t, expectedTimestamp.AsTime(), s.CreatedAt.AsTime())
 	}
 
 }
 
 func Test_CreateSnapshot(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
-
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 			MockMap: func(r *resource.Resource) error { return nil },
 		},
-		allocator: &testutil.MockAllocator{
-			MockSelectClusterForNewResource: func() (string, error) {
+		allocator: &allocatormocks.MockAllocator{
+			MockAllocateCluster: func(affinityTags map[string]string) (string, error) {
 				return clusterID1, nil
 			},
 		},
-		clientTranslator: &testutil.MockClientTranslator{
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockCreateSnapshot: func(ctx context.Context, c client.Client, req *storms.CreateSnapshotRequest) (*storms.CreateSnapshotResponse, error) {
 				return &storms.CreateSnapshotResponse{}, nil
 			},
@@ -523,22 +567,20 @@ func Test_CreateSnapshot(t *testing.T) {
 }
 
 func Test_DeleteSnapshot(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
-				return client1, nil
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
+				return mockCluster1, nil
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockGetResourceCluster: func(resourceID string) (string, error) {
 				return clusterID1, nil
 			},
 			MockUnmap: func(resourceID string) error { return nil },
 		},
-		allocator: &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{
+		allocator: &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockDeleteSnapshot: func(ctx context.Context, c client.Client, req *storms.DeleteSnapshotRequest,
 			) (*storms.DeleteSnapshotResponse, error) {
 				return &storms.DeleteSnapshotResponse{}, nil
@@ -553,27 +595,19 @@ func Test_DeleteSnapshot(t *testing.T) {
 }
 
 func Test_SyncResource(t *testing.T) {
-	clusterID1 := uuid.NewString()
-	client1 := &testutil.MockClient{}
-	clusterID2 := uuid.NewString()
-	client2 := &testutil.MockClient{}
-	resourceID1 := uuid.NewString()
-	resourceID2 := uuid.NewString()
-	expectedTime := timestamppb.New(time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC))
-
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
 				switch clusterID {
 				case clusterID1:
-					return client1, nil
+					return mockCluster1, nil
 				case clusterID2:
-					return client2, nil
+					return mockCluster2, nil
 				}
 				return nil, fmt.Errorf("error")
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockMap:   func(r *resource.Resource) error { return nil },
 			MockUnmap: func(resourceID string) error { return nil },
 			MockGetResourceCluster: func(resourceID string) (string, error) {
@@ -586,8 +620,8 @@ func Test_SyncResource(t *testing.T) {
 				return "", fmt.Errorf("error")
 			},
 		},
-		allocator: &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{
+		allocator: &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{
 			MockGetVolume: func(ctx context.Context, c client.Client, req *storms.GetVolumeRequest,
 			) (*storms.GetVolumeResponse, error) {
 				return &storms.GetVolumeResponse{
@@ -598,7 +632,7 @@ func Test_SyncResource(t *testing.T) {
 						Acl:                []string{},
 						IsAvailable:        true,
 						SourceSnapshotUuid: "",
-						CreatedAt:          expectedTime,
+						CreatedAt:          expectedTimestamp,
 					},
 				}, nil
 			},
@@ -611,7 +645,7 @@ func Test_SyncResource(t *testing.T) {
 						SectorSize:       storms.SectorSizeEnum_SECTOR_SIZE_ENUM_512,
 						IsAvailable:      true,
 						SourceVolumeUuid: uuid.NewString(),
-						CreatedAt:        expectedTime,
+						CreatedAt:        expectedTimestamp,
 					},
 				}, nil
 			},
@@ -670,64 +704,14 @@ func Test_SyncResource(t *testing.T) {
 }
 
 func Test_SyncAllResources(t *testing.T) {
-	resourceID1 := uuid.NewString()
-	clusterID1 := uuid.NewString()
-	expectedTime := time.Date(2025, 11, 15, 10, 30, 0, 0, time.UTC)
-	client1 := &testutil.MockClient{
-		MockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
-			return &models.GetVolumesResponse{
-				Volumes: []*models.Volume{
-					{
-						UUID:               resourceID1,
-						VendorVolumeID:     resourceID1,
-						Size:               defaultOSDiskSizeBytes,
-						SectorSize:         sectorSize512,
-						ACL:                []string{},
-						IsAvailable:        true,
-						SourceSnapshotUUID: "",
-						CreatedAt:          expectedTime,
-					},
-				},
-			}, nil
-		},
-		MockGetSnapshots: func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error) {
-			return &models.GetSnapshotsResponse{
-				Snapshots: []*models.Snapshot{},
-			}, nil
-		},
-	}
-	resourceID2 := uuid.NewString()
-	clusterID2 := uuid.NewString()
-	client2 := &testutil.MockClient{
-		MockGetVolumes: func(ctx context.Context, req *models.GetVolumesRequest) (*models.GetVolumesResponse, error) {
-			return &models.GetVolumesResponse{
-				Volumes: []*models.Volume{},
-			}, nil
-		},
-		MockGetSnapshots: func(ctx context.Context, req *models.GetSnapshotsRequest) (*models.GetSnapshotsResponse, error) {
-			return &models.GetSnapshotsResponse{
-				Snapshots: []*models.Snapshot{
-					{
-						UUID:             resourceID2,
-						VendorSnapshotID: resourceID2,
-						Size:             defaultOSDiskSizeBytes,
-						SectorSize:       sectorSize4096,
-						IsAvailable:      true,
-						SourceVolumeUUID: uuid.NewString(),
-						CreatedAt:        expectedTime,
-					},
-				},
-			}, nil
-		},
-	}
 	s := &Service{
-		clusterManager: &testutil.MockClusterManager{
-			MockGet: func(clusterID string) (client.Client, error) {
+		clusterManager: &clustermocks.MockClusterManager{
+			MockGet: func(clusterID string) (*cluster.Cluster, error) {
 				switch clusterID {
 				case clusterID1:
-					return client1, nil
+					return mockCluster1, nil
 				case clusterID2:
-					return client2, nil
+					return mockCluster2, nil
 				}
 				return nil, fmt.Errorf("error")
 			},
@@ -737,7 +721,7 @@ func Test_SyncAllResources(t *testing.T) {
 				}
 			},
 		},
-		resourceManager: &testutil.MockResourceManager{
+		resourceManager: &resourcemocks.MockResourceManager{
 			MockMap:   func(r *resource.Resource) error { return nil },
 			MockUnmap: func(resourceID string) error { return nil },
 			MockGetResourceCluster: func(resourceID string) (string, error) {
@@ -767,8 +751,8 @@ func Test_SyncAllResources(t *testing.T) {
 				}
 			},
 		},
-		allocator:        &testutil.MockAllocator{},
-		clientTranslator: &testutil.MockClientTranslator{},
+		allocator:        &allocatormocks.MockAllocator{},
+		clientTranslator: &translatormocks.MockClientTranslator{},
 	}
 
 	resp, err := s.SyncAllResources(context.Background(), &storms.SyncAllResourcesRequest{})

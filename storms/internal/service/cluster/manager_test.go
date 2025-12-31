@@ -5,21 +5,46 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/require"
+	"go.uber.org/multierr"
 
-	"gitlab.com/crusoeenergy/island/storage/storms/client"
-	testutil "gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/testutil"
+	clientmocks "gitlab.com/crusoeenergy/island/storage/storms/client/mocks"
 )
 
 var (
-	clusterID1   = "b22de56f-600f-4fa1-99ba-8f045e905f8e"
-	client1      = &testutil.MockClient{}
-	clusterID2   = "2ecbb15a-3a55-4085-856a-296565f34f40"
-	client2      = &testutil.MockClient{}
+	vendor1       = "vendor-a"
+	clusterID1    = "b22de56f-600f-4fa1-99ba-8f045e905f8e"
+	client1       = &clientmocks.MockClient{}
+	affinityTags1 = map[string]string{"region": "us-east-1"}
+
+	vendor2       = "vendor-b"
+	clusterID2    = "2ecbb15a-3a55-4085-856a-296565f34f40"
+	client2       = &clientmocks.MockClient{}
+	affinityTags2 = map[string]string{"region": "us-south-1"}
+
+	cluster1 = &Cluster{
+		Config: &Config{
+			Vendor:       vendor1,
+			ClusterID:    clusterID1,
+			AffinityTags: affinityTags1,
+			VendorConfig: nil,
+		},
+		Client: client1,
+	}
+	cluster2 = &Cluster{
+		Config: &Config{
+			Vendor:       vendor2,
+			ClusterID:    clusterID2,
+			AffinityTags: affinityTags2,
+			VendorConfig: nil,
+		},
+		Client: client2,
+	}
+
 	setupManager = func() *InMemoryManager {
 		manager := &InMemoryManager{
-			clients: map[string]client.Client{
-				clusterID1: client1,
-				clusterID2: client2,
+			clusters: map[string]*Cluster{
+				clusterID1: cluster1,
+				clusterID2: cluster2,
 			},
 		}
 
@@ -30,37 +55,56 @@ var (
 func Test_Set(t *testing.T) {
 	type input struct {
 		clusterID string
-		c         client.Client
+		c         *Cluster
 	}
 
 	tests := []struct {
 		name      string
-		input     input
+		inputs    []input
 		expectErr bool
 	}{
 		{
 			name: "valid",
-			input: input{
-				clusterID: uuid.NewString(),
-				c:         &testutil.MockClient{},
+			inputs: []input{
+				{
+					clusterID: clusterID1,
+					c:         cluster1,
+				},
 			},
 			expectErr: false,
 		},
 		{
 			name: "duplicate",
-			input: input{
-				clusterID: clusterID1,
-				c:         client1,
+			inputs: []input{
+				{
+					clusterID: clusterID1,
+					c:         cluster1,
+				},
+				{
+					clusterID: clusterID1,
+					c:         cluster1,
+				},
 			},
-			expectErr: true,
+			expectErr: false,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := setupManager()
-			err := manager.Set(tt.input.clusterID, tt.input.c)
-			require.NoError(t, err)
+			var multiErr error
+			for _, input := range tt.inputs {
+				err := manager.Set(input.clusterID, input.c)
+				if err != nil {
+					multiErr = multierr.Append(multiErr, err)
+				}
+			}
+			if tt.expectErr {
+				require.Error(t, multiErr)
+			} else {
+				require.NoError(t, multiErr)
+			}
+
 		})
 	}
 }
@@ -68,31 +112,41 @@ func Test_Set(t *testing.T) {
 func Test_Remove(t *testing.T) {
 	tests := []struct {
 		name      string
-		input     string
+		inputs    []string
 		expectErr bool
 	}{
 		{
 			name:      "valid",
-			input:     clusterID1,
+			inputs:    []string{clusterID1, clusterID2},
 			expectErr: false,
 		},
 		{
 			name:      "invalid cluster id",
-			input:     uuid.NewString(),
+			inputs:    []string{uuid.NewString()},
+			expectErr: true,
+		},
+		{
+			name:      "remove cluster twice",
+			inputs:    []string{clusterID1, clusterID1},
 			expectErr: true,
 		},
 	}
 
 	for _, tt := range tests {
-		manager := setupManager()
 		t.Run(tt.name, func(t *testing.T) {
-			err := manager.Remove(tt.input)
-			if tt.expectErr {
-				require.Error(t, err)
-
-				return
+			manager := setupManager()
+			var multiErr error
+			for _, input := range tt.inputs {
+				err := manager.Remove(input)
+				if err != nil {
+					multiErr = multierr.Append(multiErr, err)
+				}
 			}
-			require.NoError(t, err)
+			if tt.expectErr {
+				require.Error(t, multiErr)
+			} else {
+				require.NoError(t, multiErr)
+			}
 		})
 	}
 }
@@ -101,19 +155,19 @@ func Test_Get(t *testing.T) {
 	tests := []struct {
 		name      string
 		input     string
-		expect    client.Client
+		expect    *Cluster
 		expectErr bool
 	}{
 		{
 			name:      "valid #1",
 			input:     clusterID1,
-			expect:    client1,
+			expect:    cluster1,
 			expectErr: false,
 		},
 		{
 			name:      "valid #2",
 			input:     clusterID2,
-			expect:    client2,
+			expect:    cluster2,
 			expectErr: false,
 		},
 		{
@@ -135,12 +189,7 @@ func Test_Get(t *testing.T) {
 				return
 			}
 			require.NoError(t, err)
-			switch tt.input {
-			case clusterID1:
-				require.Equal(t, client1, actual)
-			case clusterID2:
-				require.Equal(t, client2, actual)
-			}
+			require.Equal(t, tt.input, actual.Config.ClusterID)
 		})
 	}
 }

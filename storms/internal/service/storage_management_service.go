@@ -25,7 +25,7 @@ func (s *Service) GetVolume(ctx context.Context, req *storms.GetVolumeRequest,
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	resp, err := s.clientTranslator.GetVolume(ctx, c, req)
+	resp, err := s.clientTranslator.GetVolume(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get volume in translation layer: %w", err)
 	}
@@ -44,7 +44,7 @@ func (s *Service) GetVolumes(ctx context.Context, req *storms.GetVolumesRequest)
 			return nil, fmt.Errorf("failed to get client: %w", err)
 		}
 
-		resp, err := s.clientTranslator.GetVolumes(ctx, c, req)
+		resp, err := s.clientTranslator.GetVolumes(ctx, c.Client, req)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get volumes in translation layer: %w", err)
 		}
@@ -62,6 +62,7 @@ func (s *Service) CreateVolume(ctx context.Context, req *storms.CreateVolumeRequ
 ) (*storms.CreateVolumeResponse, error) {
 	var clusterID string
 	var err error
+
 	switch source := req.GetSource().(type) {
 	case *storms.CreateVolumeRequest_FromSnapshot:
 		snapshotID := source.FromSnapshot.SnapshotUuid
@@ -70,7 +71,7 @@ func (s *Service) CreateVolume(ctx context.Context, req *storms.CreateVolumeRequ
 			return nil, fmt.Errorf("failed to get cluster for resource: %w", err)
 		}
 	case *storms.CreateVolumeRequest_FromNew:
-		clusterID, err = s.allocator.SelectClusterForNewResource()
+		clusterID, err = s.allocator.AllocateCluster(req.AffinityTags)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get allocate cluster for resource: %w", err)
 		}
@@ -81,7 +82,7 @@ func (s *Service) CreateVolume(ctx context.Context, req *storms.CreateVolumeRequ
 		return nil, fmt.Errorf("failed to get client for cluster: %w", err)
 	}
 
-	resp, err := s.clientTranslator.CreateVolume(ctx, c, req)
+	resp, err := s.clientTranslator.CreateVolume(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create volume in translation layer: %w", err)
 	}
@@ -103,7 +104,7 @@ func (s *Service) ResizeVolume(ctx context.Context, req *storms.ResizeVolumeRequ
 	if err != nil {
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
-	resp, err := s.clientTranslator.ResizeVolume(ctx, c, req)
+	resp, err := s.clientTranslator.ResizeVolume(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to resize volume in translation layer: %w", err)
 	}
@@ -120,7 +121,7 @@ func (s *Service) DeleteVolume(ctx context.Context, req *storms.DeleteVolumeRequ
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	resp, err := s.clientTranslator.DeleteVolume(ctx, c, req)
+	resp, err := s.clientTranslator.DeleteVolume(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete volume in translation layer: %w", err)
 	}
@@ -142,7 +143,7 @@ func (s *Service) AttachVolume(ctx context.Context, req *storms.AttachVolumeRequ
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	resp, err := s.clientTranslator.AttachVolume(ctx, c, req)
+	resp, err := s.clientTranslator.AttachVolume(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to attach volume in translation layer: %w", err)
 	}
@@ -160,7 +161,7 @@ func (s *Service) DetachVolume(ctx context.Context, req *storms.DetachVolumeRequ
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	resp, err := s.clientTranslator.DetachVolume(ctx, c, req)
+	resp, err := s.clientTranslator.DetachVolume(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to detach volume in translation layer: %w", err)
 	}
@@ -178,7 +179,7 @@ func (s *Service) GetSnapshot(ctx context.Context, req *storms.GetSnapshotReques
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	resp, err := s.clientTranslator.GetSnapshot(ctx, c, req)
+	resp, err := s.clientTranslator.GetSnapshot(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get snapshot translation layer: %w", err)
 	}
@@ -199,7 +200,7 @@ func (s *Service) GetSnapshots(ctx context.Context, req *storms.GetSnapshotsRequ
 			return nil, fmt.Errorf("failed to get client: %w", err)
 		}
 
-		snapshots, err := s.clientTranslator.GetSnapshots(ctx, c, req)
+		snapshots, err := s.clientTranslator.GetSnapshots(ctx, c.Client, req)
 		if err != nil {
 			return nil, fmt.Errorf("faild to get snapshots in translation layer: %w", err)
 		}
@@ -224,7 +225,7 @@ func (s *Service) CreateSnapshot(ctx context.Context, req *storms.CreateSnapshot
 		return nil, fmt.Errorf("failed to get client for cluster: %w", err)
 	}
 
-	resp, err := s.clientTranslator.CreateSnapshot(ctx, c, req)
+	resp, err := s.clientTranslator.CreateSnapshot(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create snapshot in translation layer: %w", err)
 	}
@@ -248,7 +249,7 @@ func (s *Service) DeleteSnapshot(ctx context.Context, req *storms.DeleteSnapshot
 		return nil, fmt.Errorf("failed to get client for resource: %w", err)
 	}
 
-	resp, err := s.clientTranslator.DeleteSnapshot(ctx, c, req)
+	resp, err := s.clientTranslator.DeleteSnapshot(ctx, c.Client, req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to delete volume in translation layer: %w", err)
 	}

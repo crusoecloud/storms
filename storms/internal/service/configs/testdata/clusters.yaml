@@ -1,11 +1,18 @@
 clusters:
-  - vendor: "krusoe"
+  - vendor: krusoe
+    cluster_id: b5cc813f-3a10-46ea-be93-b573e4a05ea1
+    affinity_tags:
+      "region": "us-east-1"
+      "type": "totally-not-nvme"
     vendor_config: 
       api_key: krusoe_api_key
-  - vendor: "lightbits"
+  - vendor: lightbits
     cluster_id: eee4019a-3d0f-4fea-8142-a5a8d0a3c20a
+    affinity_tags: 
+      "region": "us-south-1"
+      "type": "not-nvme"
     vendor_config:
       auth_token: this_is_an_auth_token
-      addr_strs: ['1.1.1.1:1', '2.2.2.2:2']
+      addr_strs: [1.1.1.1:1, 2.2.2.2:2]
       project_name: "unit-test"
       replication_factor: 3

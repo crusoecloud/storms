@@ -25,7 +25,7 @@ This mode requires the --id and --snapshot-id flags.
 	createVolCmdShortMsg   = "Create a volume. Can either be a new empty volume or from a snapshot"
 	createVolCmdExampleMsg = `
 # Create a 10GiB volume new empty volume
-create --id <volume-uuid> --size 10GiB --sector-size 4096
+create --id <volume-uuid> --size 10GiB --sector-size 4096 --affinity-tags region=us-east-1,type=block-storage,tier=fast
 
 # Create a volume from an existing snapshot
 create --id <volume-uuid> --snapshot-id <snapshot-uuid>
@@ -67,7 +67,13 @@ func NewCreateVolumeCmd(cmdFactory *utils.CmdFactory) *cobra.Command {
 		String(idFlag, "", "id of volume", true).
 		String(sizeFlag, "", "size of volume in the format 'X[GiB|TiB]' where X is a non-zero integer", false).
 		Uint(sectorSizeFlag, "", "sector size of volumes: either '512' or '4096'", false).
-		String(srcSnapshotIDFlag, "", "id of the source snapshot", false)
+		String(srcSnapshotIDFlag, "", "id of the source snapshot", false).
+		StringToString(affinityTagsFlag, "",
+			"affinity tags for placement preference in the format key1=val1,key2=val2,...,keyN=valN;\n"+
+				"volumes will be placed on clusters are tagged with all the key-value tags specified;\n"+
+				"if no tags are specified, all clusters can qualified for volume placement;\n"+
+				"if more than 1 clusters qualify, placement is determined by StorMS allocator algorithm",
+			false)
 
 	return cmd
 }
@@ -75,17 +81,18 @@ func NewCreateVolumeCmd(cmdFactory *utils.CmdFactory) *cobra.Command {
 func createVolume(cmd *cobra.Command, client storms.StorageManagementServiceClient) error {
 	id := utils.MustGetStringFlag(cmd, idFlag)
 	srcSnapshotID := utils.MustGetStringFlag(cmd, srcSnapshotIDFlag)
+	affinityTags := utils.MustGetStringToStringFlag(cmd, affinityTagsFlag)
 
 	var req *storms.CreateVolumeRequest
 	var err error
 
 	// Populate the 'oneof source' field based on the provided flags.
 	if srcSnapshotID != "" {
-		req = createCreateVolFromSnapshotRequest(id, srcSnapshotID)
+		req = createCreateVolFromSnapshotRequest(id, srcSnapshotID) // todo - do we want snapshot-src to have affinity?
 	} else {
 		sizeStr := utils.MustGetStringFlag(cmd, sizeFlag)
 		sectorSize := utils.MustGetUintFlag(cmd, sectorSizeFlag)
-		req, err = createCreateEmptyVolRequest(id, sizeStr, sectorSize)
+		req, err = createCreateEmptyVolRequest(id, sizeStr, sectorSize, affinityTags)
 		if err != nil {
 			return fmt.Errorf("failed to create request to create new empty volume: %w", err)
 		}
@@ -137,7 +144,9 @@ func createCreateVolFromSnapshotRequest(id, srcSnapshotID string) *storms.Create
 	return req
 }
 
-func createCreateEmptyVolRequest(id, size string, sectorSize uint) (*storms.CreateVolumeRequest, error) {
+func createCreateEmptyVolRequest(
+	id, size string, sectorSize uint, affinityTags map[string]string,
+) (*storms.CreateVolumeRequest, error) {
 	sizeBytes, err := utils.ParseSizeString(size)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse size: %w", err)
@@ -149,7 +158,8 @@ func createCreateEmptyVolRequest(id, size string, sectorSize uint) (*storms.Crea
 	}
 
 	req := &storms.CreateVolumeRequest{
-		Uuid: id,
+		Uuid:         id,
+		AffinityTags: affinityTags,
 		Source: &storms.CreateVolumeRequest_FromNew{
 			FromNew: &storms.NewVolumeSpec{
 				Size:       sizeBytes,

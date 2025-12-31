@@ -4,21 +4,15 @@ import (
 	"fmt"
 	"os"
 
+	"gitlab.com/crusoeenergy/island/storage/storms/storms/internal/service/cluster"
 	"gopkg.in/yaml.v2"
 )
 
-type ClusterConfig struct {
-	Clusters []Cluster `yaml:"clusters"`
+type ClustersConfig struct {
+	Clusters []*cluster.Config `yaml:"clusters"`
 }
 
-//nolint:tagliatelle // using snake case for YAML
-type Cluster struct {
-	Vendor       string                 `yaml:"vendor"`
-	ClusterID    string                 `yaml:"cluster_id"`
-	VendorConfig map[string]interface{} `yaml:"vendor_config"` // This is for vendor-specific configuration.
-}
-
-func LoadClusterConfig(filename string) (*ClusterConfig, error) {
+func LoadClusterConfig(filename string) (*ClustersConfig, error) {
 	// Read the file
 	data, err := os.ReadFile(filename)
 	if err != nil {
@@ -26,10 +20,10 @@ func LoadClusterConfig(filename string) (*ClusterConfig, error) {
 	}
 
 	// Parse YAML into struct
-	var clusterConfig ClusterConfig
-	if err := yaml.Unmarshal(data, &clusterConfig); err != nil {
+	var clustersConfig ClustersConfig
+	if err := yaml.Unmarshal(data, &clustersConfig); err != nil {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
-	return &clusterConfig, nil
+	return &clustersConfig, nil
 }
