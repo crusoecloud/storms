@@ -712,7 +712,7 @@ func (c *Client) AttachVolume(ctx context.Context, req *models.AttachVolumeReque
 	volumeName := req.UUID
 
 	// Get or create host (UUID is translated to NQN format internally)
-	host, err := c.getHost(hostUUID)
+	host, err := c.getOrCreateHost(hostUUID)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get or create host: %w", err)
 	}
@@ -734,6 +734,56 @@ func (c *Client) AttachVolume(ctx context.Context, req *models.AttachVolumeReque
 		Msg("Successfully attached volume to host")
 
 	return &models.AttachVolumeResponse{}, nil
+}
+
+// getOrCreateHost gets an existing host or creates a new one with the given UUID
+// The UUID is translated to NQN format: "nqn.2014-08.org.nvmexpress:uuid:<UUID>"
+// The NQN is used as both the host name and the NQN value (1:1 mapping).
+func (c *Client) getOrCreateHost(uuid string) (*Host, error) {
+	// Translate UUID to NQN format
+
+	nqn := fmt.Sprintf("nqn.2014-08.org.nvmexpress:uuid:%s", uuid)
+
+	// try to get this host
+	host, err := c.getHost(uuid)
+
+	if err == nil {
+		// Host already exists
+		log.Info().
+			Str("nqn", nqn).
+			Msg("Host already exists")
+
+		return host, nil
+	}
+
+	// Host doesn't exist, create it
+	log.Info().
+		Str("nqn", nqn).
+		Msg("Creating new host")
+
+	// FlashArray REST API: POST /api/2.20/hosts?names={uuid}
+	// Request body: {"nqns": ["nqn..."]}
+	createPath := fmt.Sprintf("/api/%s/hosts?names=%s", c.apiVersion, uuid)
+	requestBody := map[string]interface{}{
+		"nqns": []string{nqn},
+	}
+
+	var createResp CreateHostsResponse
+	err = c.post(createPath, requestBody, &createResp)
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create host: %w", err)
+	}
+
+	if len(createResp.Items) == 0 {
+		return nil, fmt.Errorf("no host returned in create response")
+	}
+
+	log.Info().
+		Str("host_name", createResp.Items[0].Name).
+		Msg("Successfully created host")
+
+	return &createResp.Items[0], nil
 }
 
 //nolint:dupl // Detach and attach methods are intentionally similar.

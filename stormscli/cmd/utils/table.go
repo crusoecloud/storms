@@ -18,7 +18,7 @@ const (
 
 func RenderVolumes(volumes []*storms.Volume) error {
 	table := tablewriter.NewWriter(os.Stdout)
-	table.Header([]string{"ID", "Size (bytes)", "Sector size", "ACLs", "Available", "VendorVolumeID", "CreatedAt"})
+	table.Header([]string{"ID", "Size (bytes)", "Sector size", "ACL", "Available", "VendorVolumeID", "CreatedAt"})
 
 	for _, v := range volumes {
 		createdAt := "N/A"
