@@ -30,8 +30,27 @@ build_and_push_storms:
   before_script:
     - go env -w "GOPRIVATE=${CI_SERVER_HOST}"
     - echo -e "machine ${CI_SERVER_HOST} login gitlab-ci-token password ${CI_JOB_TOKEN}" > ~/.netrc
+    # Configure Git User for tagging
+    - git config --global user.email ${GITLAB_USER_EMAIL}
+    - git config --global user.name "Gitlab Runner"
   script:
     - *cache-setup
+    # Calculate version
+    - |-
+      if [ "$CI_COMMIT_BRANCH" == "main" ] || [ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]; then
+        chmod +x ./scripts/generate_version.sh
+        ./scripts/generate_version.sh "${MAJOR_VERSION}" "${MINOR_VERSION}" "${TAG_PREFIX}"
+        source variables.env
+        
+        export FINAL_VER="$RELEASE_VERSION"
+        export DO_TAG_RELEASE="true"
+      else
+        export FINAL_VER="$CI_COMMIT_REF_NAME"
+        export DO_TAG_RELEASE="false"
+      fi
+      
+      echo "🚀 Target Version: $FINAL_VER"
+    # Build
     - |-
       if [ "$CI_COMMIT_BRANCH" == "main" ] || [ "$CI_COMMIT_BRANCH" == "$CI_DEFAULT_BRANCH" ]
       then
@@ -39,8 +58,24 @@ build_and_push_storms:
       else
        CI_COMMIT_REF_NAME="$CI_COMMIT_REF_NAME" make cross
       fi
+    # Uploads binaries 
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$CI_PROJECT_DIR/storms/dist/storms" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/storms/${CI_COMMIT_REF_NAME}/storms"'
     - 'curl --header "JOB-TOKEN: $CI_JOB_TOKEN" --upload-file "$CI_PROJECT_DIR/stormscli/dist/stormscli" "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/storms/${CI_COMMIT_REF_NAME}/stormscli"'
+    # Tag and Push (Only runs if uploads succeed and we are on main)
+    - |-
+      if [ "$DO_TAG_RELEASE" == "true" ]; then
+        echo "Tagging release $FINAL_VER..."
+        
+        # Add the remote using the Project Access Token (PAT)
+        git remote set-url origin "https://oauth2:${PROJECT_ACCESS_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+        
+        # Create the tag
+        git tag -a "$FINAL_VER" -m "Release $FINAL_VER"
+        
+        # Push the tag - skip CI to avoid infinite loops
+        git push origin "$FINAL_VER" -o ci.skip
+      fi
+
   rules:
     - if: '$CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "staging" || $CI_MERGE_REQUEST_TARGET_BRANCH_NAME == "prod"'
       when: never
