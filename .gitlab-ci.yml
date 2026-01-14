@@ -66,9 +66,6 @@ build_and_push_storms:
       if [ "$DO_TAG_RELEASE" == "true" ]; then
         echo "Tagging release $FINAL_VER..."
         
-        # Add the remote using the Project Access Token (PAT)
-        git remote set-url origin "https://oauth2:${PROJECT_ACCESS_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-        
         # Create the tag
         git tag -a "$FINAL_VER" -m "Release $FINAL_VER"
         
